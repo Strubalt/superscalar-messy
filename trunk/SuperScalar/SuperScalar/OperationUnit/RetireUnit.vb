@@ -15,6 +15,13 @@
     Private mReorderBuffer As ReorderBuffer
     Private mRegisterFile As GPPRegisterFile
     Private mStoreQueue As FixedSizeQueue(Of StoreInstruction)
+    Private mNumInstructionRetired As Integer
+
+    Public ReadOnly Property NumInstructionRetired() As Integer
+        Get
+            Return Me.mNumInstructionRetired
+        End Get
+    End Property
 
     Public Property ReorderBuffer() As ReorderBuffer
         Get
@@ -73,6 +80,7 @@
     End Sub
 
     Private Sub SaveLog(ByVal entry As RobEntry)
+        mNumInstructionRetired += 1
         'Dim fileName As String = "C:\test.txt"
 
         'If Not IO.File.Exists(fileName) Then

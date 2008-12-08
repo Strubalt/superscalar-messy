@@ -106,6 +106,12 @@
         End Get
     End Property
 
+    Public ReadOnly Property NumInstructionRetired() As Integer
+        Get
+            Return Me.mRetireUnit.NumInstructionRetired
+        End Get
+    End Property
+
     Private Sub CreateAllUnits()
         mControlUnit = New CProcessorControl(Me)
 

@@ -153,7 +153,7 @@ Public Class Form1
                 End If
             Next
             UpdateUI()
-            MsgBox(run & ", Misprediction = " & processor.MisPredictionCount _
+            MsgBox(run & "(" & processor.NumInstructionRetired & ")" & ", Misprediction = " & processor.MisPredictionCount _
                 & "(" & processor.TotalBranchCount & ")")
         End If
     End Sub
