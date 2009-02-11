@@ -1,6 +1,6 @@
-package asm;
 
-import java.io.*;
+//package asm;
+
 
 public class AsmMain {
 
@@ -8,24 +8,37 @@ public class AsmMain {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-		String inFile = "hello2.asm";
-		String outFile = "hello2.out";
 		
-		Asm.assemble(inFile, outFile);
-/*
-		if(args.length > 1) {
-			inFile = args[1];
-			outFile = inFile;
+		
+		//System.out.println(new File(System.getProperty("user.dir")));
+		String inFile = null;
+		String outFile = null;
+		if(args.length != 2) {
+			System.out.println(args.length);
+			System.out.println("Please enter input, output filenames.");
+			return;
+			//Asm.assemble(inFile, outFile);
+		} else {
+			inFile = args[0];
+			outFile = args[1];
+			/*
 			if(inFile.contains(".")){
 				int idx = inFile.indexOf(".");
 				if(inFile.substring(idx) != "out"){
-					outFile = inFile.substring(0, idx);
+					outFile = inFile.substring(0, idx-1);
 				}
 			}
 			outFile += ".out";
-			//Asm.assemble(inFile, outFile);
+			*/
 		}
+		try {
+			Asm.assemble(inFile, outFile);
+		} catch(Exception e) {
+			System.out.println(e.toString());
+		}
+		
+/*
+		
 		*/
 	}
 
