@@ -3,6 +3,7 @@
 import java.util.*;
 
 
+
 public class InstrEncoder {
 	
 	private class InstrType{
