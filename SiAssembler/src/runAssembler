@@ -2,7 +2,7 @@ if [ -f AsmMain.class ]; then
   echo ""
 elif [ -f AsmMain.java ]; then
   echo "Compiling...."
-  javac *.java
+  make
 else
   echo "Files not found."
 fi
