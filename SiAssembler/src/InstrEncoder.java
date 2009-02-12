@@ -119,6 +119,9 @@ public class InstrEncoder {
 		case Offset24:	//1000 0100 xxxx xxxx xxxx xxxx xxxx xxxx
 						//BLR   offset
 			offset = getOffset(instr.token(1), instrIndex, symbolTable, constTable);
+			if(offset > 8388607 || offset < -8388608){
+				System.out.println("ERROR: Out of bound:" + instr.toString());
+			}
 			data[0] = getByteValue(offset, 0);
 			data[1] = getByteValue(offset, 1);
 			data[2] = getByteValue(offset, 2);
@@ -126,6 +129,9 @@ public class InstrEncoder {
 			break;
 		case Offset20:	//opcode 00 0000 xxxx xxxx xxxx xxxx xxxx
 			offset = getOffset(instr.token(1), instrIndex, symbolTable, constTable);
+			if(offset > 529407 || offset < -529408){
+				System.out.println("ERROR: Out of bound:" + instr.toString());
+			}
 			data[0] = getByteValue(offset, 0);
 			data[1] = getByteValue(offset, 1);
 			temp = (offset & 0xF0000);
@@ -137,6 +143,9 @@ public class InstrEncoder {
 			offset = getOffset(instr.token(3), instrIndex, symbolTable, constTable);
 			Rj = getRegNum(instr.token(2));
 			Rk = getRegNum(instr.token(1));
+			if(offset > 127 || offset < -128){
+				System.out.println("ERROR: Out of bound:" + instr.toString());
+			}
 			data[0] = getByteValue(offset, 0);
 			data[1] = (byte)Rk;
 			data[2] = getRjRiatByte2(Rj, 0);
@@ -145,6 +154,9 @@ public class InstrEncoder {
 		case RegijOffset8:  //0110 01jj jjjj iiii ii00 0000 xxxx xxxx
 							//LOAD  Ri,Rj,offset
 			offset = getOffset(instr.token(3), instrIndex, symbolTable, constTable);
+			if(offset > 127 || offset < -128){
+				System.out.println("ERROR: Out of bound:" + instr.toString());
+			}
 			Ri = getRegNum(instr.token(1));
 			Rj = getRegNum(instr.token(2));
 			data[0] = getByteValue(offset, 0);
@@ -157,7 +169,9 @@ public class InstrEncoder {
 			Ri = getRegNum(instr.token(1));
 			Rj = getRegNum(instr.token(2));
 			imm = getImmediate(instr.token(3), symbolTable, constTable);
-			
+			if(imm > 2047 || imm < -2048){
+				System.out.println("ERROR: Out of bound:" + instr.toString());
+			}
 			data[0] = getByteValue(imm, 0);
 			temp = imm & 0xF00;
 			data[1] = (byte)((Ri << 6 | temp >> 8) & 0xFF);
@@ -172,6 +186,9 @@ public class InstrEncoder {
 				offset = getImmediate(instr.token(2), symbolTable, constTable);
 			else
 				offset = getOffset(instr.token(2), instrIndex, symbolTable, constTable);
+			if(offset > 529407 || offset < -529408){
+				System.out.println("ERROR: Out of bound:" + instr.toString());
+			}
 			data[0] = getByteValue(offset, 0);
 			data[1] = getByteValue(offset, 1);
 			temp = offset & 0xF0000;
@@ -289,3 +306,4 @@ public class InstrEncoder {
 	
 	
 }
+
