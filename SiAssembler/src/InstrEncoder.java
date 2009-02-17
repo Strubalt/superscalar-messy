@@ -300,6 +300,20 @@ public class InstrEncoder {
 				return 51;
 			if(reg.equals("GP"))
 				return 50;
+			if(reg.equals("STATUSREG"))
+				return 57;
+			if(reg.equals("INTERRUPTREG"))
+				return 58;
+			if(reg.equals("TIMERREG"))
+				return 59;
+			if(reg.equals("BASEREG"))
+				return 60;
+			if(reg.equals("LIMITREG"))
+				return 61;
+			if(reg.equals("RINGREG"))
+				return 62;
+			if(reg.equals("PIDREG"))
+				return 63;
 		}
 		return -1;
 	}
