@@ -289,7 +289,7 @@ public class InstrEncoder {
 	private int getRegNum(String reg){
 		if(Character.isDigit(reg.charAt(0))){
 			return Integer.decode(reg).intValue();
-		} else if(reg.charAt(0) == 'R'){
+		} else if(reg.charAt(0) == 'R' && Character.isDigit(reg.charAt(1))){
 			return Integer.decode(reg.substring(1)).intValue();
 		} else {
 			if(reg.equals("LR"))
@@ -315,6 +315,7 @@ public class InstrEncoder {
 			if(reg.equals("PIDREG"))
 				return 63;
 		}
+		System.out.println("Register not found:" + reg);
 		return -1;
 	}
 	
