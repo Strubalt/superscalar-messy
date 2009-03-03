@@ -43,6 +43,7 @@ Public Class CommentState
 
     Public Overrides Sub SetParsedText(ByVal txt As String)
         mParsedText = txt
+
     End Sub
 
     Public Overrides Function ProcessEndline(ByVal tokens As System.Collections.Generic.List(Of Token)) As BaseState
