@@ -22,14 +22,14 @@ public class Memory extends Component {
 	@Override
 	void advanceTime() {
             assert(bus != null);
-            if(bus.en && bus.address >= this.base_address && 
+            if(!bus.ready && bus.en && bus.address >= this.base_address && 
                     bus.address < this.base_address + this.data.length * 4) {
                 if(bus.rwbar) { //read
                     bus.data = read(bus.address);
                 } else {        //write
                     this.write(bus.address, bus.data);
                 }
-                bus.en = false;
+                bus.ready = true;
             }
 	}
         

@@ -1,34 +1,55 @@
 package emulator;
 import java.util.*;
 import java.io.*;
+import java.lang.*;
 
 public class Emulator {
+    
+    
 
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-		
-		String inFile = null;
+            // TODO Auto-generated method stub
+
+            String inFile = null;
+
+            //System.out.println(new File(System.getProperty("user.dir")));
+            if(args.length != 1) {
+                    System.out.println("Please enter .out filename.");
+                    return;
+            } else {
+                    inFile = args[0];
+            }
+            byte a[] = new byte[100];
+           
+            try {
+                int len = System.in.read();
+                 System.out.println((char)len);
+                len = System.in.read();
+                 System.out.println((char)len);
                 
-		//System.out.println(new File(System.getProperty("user.dir")));
-		if(args.length != 1) {
-			System.out.println("Please enter .out filename.");
-			return;
-		} else {
-			inFile = args[0];
-		}
-                int initialMem[] = readInputFile(inFile);
-		Emulator emu = new Emulator(initialMem);
-                while(!emu.isHalt()){
-                    emu.advanceTime();
-                }
-                emu.dumpRegs();
-               
-		//System.out.print(Integer.toHexString(0x80000000 >> (32-11-2)));
+             } catch(Exception e) {
+                 
+             }
+            //System.out.println("enter ");
+            //PrimeThread p1 = new PrimeThread(1);
+            //PrimeThread p2 = new PrimeThread(2);
+            //p1.start();
+            //p2.start();
+            //System.out.print(Integer.toHexString(0x80000000 >> (32-11-2)));
                 
 	}
+        
+        private static void run(String inFile) {
+            int initialMem[] = readInputFile(inFile);
+            Emulator emu = new Emulator(initialMem);
+            while(!emu.isHalt()){
+                emu.advanceTime();
+            }
+            emu.dumpRegs();
+        }
         
         private Processor processor;
         private Terminal terminal;

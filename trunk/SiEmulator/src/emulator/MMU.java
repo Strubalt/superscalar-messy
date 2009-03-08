@@ -62,9 +62,10 @@ public class MMU {
     //Add Ready Signal for extension
     public boolean checkReadSignals(int addr) {
         Interconnect bus = getInterconnect(addr);
-        if(bus.address != addr) {
+        if(bus.address != addr | false == bus.ready) {
             bus.address = addr;
             bus.en = true;
+            bus.ready = false;
             bus.rwbar = true;
             return false;
         } 
@@ -80,6 +81,7 @@ public class MMU {
         bus.data = data;
         bus.rwbar = false;
         bus.en = true;
+        bus.ready = false;
     }
     
     private Interconnect getInterconnect(int addr) {

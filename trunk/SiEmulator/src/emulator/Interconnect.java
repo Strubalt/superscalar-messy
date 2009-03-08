@@ -29,7 +29,8 @@ abstract class Interconnect extends Component {
 	boolean rwbar ;
 
 	boolean isInterrupted ;
-	
+	boolean ready;
+        
 	Component[] componentList ;
 
 	
