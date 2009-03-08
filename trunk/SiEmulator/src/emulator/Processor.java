@@ -70,7 +70,6 @@ public class Processor extends Component {
                     if(fetchInstruction()) {
                         cycle += 1;
                         stage += 1;
-                        advanceTime();
                     }
                 }
 

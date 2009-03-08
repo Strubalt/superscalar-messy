@@ -22,6 +22,8 @@ public class Emulator {
             } else {
                     inFile = args[0];
             }
+            run(inFile);
+            /*
             byte a[] = new byte[100];
            
             try {
@@ -32,7 +34,7 @@ public class Emulator {
                 
              } catch(Exception e) {
                  
-             }
+             } */
             //System.out.println("enter ");
             //PrimeThread p1 = new PrimeThread(1);
             //PrimeThread p2 = new PrimeThread(2);
