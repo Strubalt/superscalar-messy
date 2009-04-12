@@ -27,4 +27,8 @@ abstract class Component {
 	 */
 	abstract void attachInterconnect(Interconnect connection) ;
 	
+        
+        void stop() {
+            
+        }
 }
