@@ -65,12 +65,17 @@ public class Emulator {
         
         private static void run(String inFile) {
             int initialMem[] = readInputFile(inFile);
-            Emulator emu = new Emulator(initialMem);
-            while(!emu.isHalt()){
-                emu.advanceTime();
+            if(initialMem != null) {
+                Emulator emu = new Emulator(initialMem);
+                while(!emu.isHalt()){
+                    emu.advanceTime();
+                }
+                emu.dumpRegs();
+                emu.stopEmulation();
+            } else {
+                System.out.println("Input file does not exist.");
             }
-            emu.dumpRegs();
-            emu.stopEmulation();
+           
         }
         
         private Processor processor;

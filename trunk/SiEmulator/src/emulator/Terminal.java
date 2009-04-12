@@ -82,7 +82,7 @@ class Terminal extends Component{
             readThread = new Terminal.ReadThread();
             readThread.enable(true);
             readThread.setBufferSize(32);
-            readThread.start();
+            //readThread.start();
     }
     
     @Override
@@ -100,6 +100,11 @@ class Terminal extends Component{
 
     @Override
     void advanceTime() {
+        //when READ_NEXT_DATA == true
+        //remove current dataIn register content, 
+        //input not empty --> false
+        
+        
         assert(bus != null);
         int offset = bus.address-this.baseAddr;
         if(!bus.ready && bus.en && offset>=0 && offset<=8) {
@@ -113,7 +118,9 @@ class Terminal extends Component{
             }
             bus.ready = true;
         }
-        
+        //if there is data from input and InRegisterNotEmpty == false
+        //move data to InRegister
+        inputDataFromTerminal();
     }
     
     void setOutputBufferSize(int size) {
@@ -181,16 +188,24 @@ class Terminal extends Component{
         resetControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
         
     }
+    
+    private void inputDataFromTerminal() {
+        if(!this.getControlRegBit(this.MSK_IN_BUFFER_NOT_EMPTY)) {
+            if(!readThread.isEmpty()) {
+                int data = readThread.readBuffer();
+                this.registers[inDataReg] = data;
+                this.setControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
+                
+            }
+        }
+    }
 
     private boolean requireReadNextData() {
+        
         return getControlRegBit(MSK_READ_NEXT_DATA);
-        /*
-        if((this.registers[controlReg] & MSK_READ_NEXT_DATA) != 0) {
-            return true;
-        }
-        return false;
-        */
+       
     }
+   
     
     private static class OutputData {
         public int Data, Format;
@@ -211,10 +226,22 @@ class Terminal extends Component{
             System.out.print((char)this.registers[outDataReg]);
         }
          */
-        OutputData data = new OutputData(this.registers[outDataReg], outputFormat());
-        outputBuffer.add(data);
+        
+        storeOutDataToBuffer();
         outputDataFromBuffer();
-        resetControlRegBit(MSK_WRITE_DATA);
+        
+    }
+    
+    private void storeOutDataToBuffer() {
+        if(!this.getControlRegBit(this.MSK_OUT_BUFFER_FULL)) {
+            OutputData data = new OutputData(this.registers[outDataReg], outputFormat());
+            outputBuffer.add(data);
+            resetControlRegBit(MSK_WRITE_DATA);
+            
+            if(outputBuffer.size() == this.outputBufferSize) {
+                this.setControlRegBit(this.MSK_OUT_BUFFER_FULL);
+            }
+        }
     }
     
     private void outputDataFromBuffer() {
@@ -225,6 +252,8 @@ class Terminal extends Component{
         //output buffer no longer full
         this.resetControlRegBit(MSK_OUT_BUFFER_FULL);
     }
+    
+    
     
     private void outputDataToTerminal(OutputData data) {
         if(FORMAT_INT == data.Format) {
