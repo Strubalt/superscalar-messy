@@ -6,7 +6,7 @@ import java.lang.*;
 public class Emulator {
     
     
-
+     
 	/**
 	 * @param args
 	 */
@@ -21,7 +21,12 @@ public class Emulator {
             } else {
                     inFile = args[0];
             }
+            
             run(inFile);
+            
+            
+            
+            
             /*
             byte a[] = new byte[100];
            
@@ -34,14 +39,29 @@ public class Emulator {
              } catch(Exception e) {
                  
              } */
-            //System.out.println("enter ");
-            //PrimeThread p1 = new PrimeThread(1);
-            //PrimeThread p2 = new PrimeThread(2);
-            //p1.start();
-            //p2.start();
+            
             //System.out.print(Integer.toHexString(0x80000000 >> (32-11-2)));
                 
 	}
+        
+        private static void testOnly() {
+            Terminal.ReadThread th = new Terminal.ReadThread();
+            th.enable(true);
+            th.start();
+            int i=0;
+            while(th.buffer.size() < 10) {
+                try {
+                    Thread.sleep(100);
+                } catch(Exception e) {
+                }
+                System.out.print(i);
+                i+=1;
+            }
+            System.out.println();
+            th.enable(false);
+            System.out.println("Finished");
+            System.out.println(th.buffer.size());
+        }
         
         private static void run(String inFile) {
             int initialMem[] = readInputFile(inFile);
