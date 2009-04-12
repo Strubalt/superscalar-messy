@@ -6,19 +6,36 @@ public class Terminal extends Component{
 
     static class ReadThread extends Thread {
          
-        private ArrayList<Integer> buffer = new ArrayList<Integer>();
- 
+        public ArrayList<Integer> buffer = new ArrayList<Integer>();
+        String newline = System.getProperty("line.separator");
+        private boolean isEnable;
+        private int bufferSize;
+        
         public void run() {
             
-            while(true) {
+            while(this.isEnable) {
                 try {
                     int input = System.in.read();
                     addToBuffer(input);
-
+                    if(!newline.equals((char)input))
+                        input = System.in.read();
+                    
                 } catch(Exception e) {
 
                 }
             }
+        }
+        
+        public void enable(boolean isEnable) {
+            this.isEnable = isEnable;
+        }
+        
+        public void setBufferSize(int size) {
+            this.bufferSize = size;
+        }
+        
+        public int getBufferSize() {
+            return this.bufferSize;
         }
         
         public synchronized void addToBuffer(int data) {
@@ -45,7 +62,7 @@ public class Terminal extends Component{
 
     private Interconnect bus;
     int id, baseAddr, terminalNumber;
-
+    Terminal.ReadThread readThread;
     int registers[];
 
     public Terminal(int id, int base, int terminalNumber) {
@@ -54,6 +71,10 @@ public class Terminal extends Component{
             this.baseAddr = base;
             this.terminalNumber = terminalNumber;
             registers = new int[3];
+            readThread = new Terminal.ReadThread();
+            readThread.enable(true);
+            readThread.setBufferSize(32);
+            readThread.start();
     }
 
     @Override
@@ -76,69 +97,121 @@ public class Terminal extends Component{
             }
             bus.ready = true;
         }
+        
+        
     }
-    final int OUT_BUFFER_FILL = 0;
-    final int IN_BUFFER_NOT_EMPTY = 1;
-    final int WRITE_DATA = 1 << 16;
-    final int READ_NEXT_DATA = 1 << 17;
-    final int OUT_FORMAT = 1 << 18;
-    final int IN_FORMAT = 1 << 19;
+    
+    final int MSK_OUT_BUFFER_FULL = 1;          //bit 0
+    final int MSK_IN_BUFFER_NOT_EMPTY = 1 << 1; //bit 1
+    final int MSK_WRITE_DATA = 1 << 16;         //bit 16
+    final int MSK_READ_NEXT_DATA = 1 << 17;     //bit 17
+    final int MSK_OUT_FORMAT = 1 << 18;         //bit 18
+    final int MSK_IN_FORMAT = 1 << 19;          //bit 19
     final int FORMAT_INT = 0;
     final int FORMAT_ASCII = 1;
 
     private int outputFormat() {
-        if((this.registers[controlReg] & OUT_FORMAT) != 0) {
+        if(getControlRegBit(MSK_OUT_FORMAT)) {
             return FORMAT_ASCII;
+        } else {
+            return FORMAT_INT;
         }
-        return FORMAT_INT;
     }
 
     private int inputFormat() {
-        if((this.registers[controlReg] & IN_FORMAT) != 0) {
+        if(getControlRegBit(MSK_IN_FORMAT)) {
             return FORMAT_ASCII;
+        } else {
+            return FORMAT_INT;
         }
-        return FORMAT_INT;
+       
     }
 
+   
     private boolean requireWriteData() {
+        return getControlRegBit(MSK_WRITE_DATA);
+    }
+    
+    private boolean getControlRegBit(int mask) {
+        return ((this.registers[controlReg] & mask) != 0);
+    }
+    private void setControlRegBit(int mask) {
+        this.registers[controlReg] = this.registers[controlReg] | mask;
+    }
+    
+    private void resetControlRegBit(int mask) {
+        this.registers[controlReg] = this.registers[controlReg] & (~mask);
+    }
 
-        if((this.registers[controlReg] & WRITE_DATA) != 0) {
+    
+    private void prepareReadNextData() {
+        //clear READ_NEXT_DATA so it won't redo this function again
+        resetControlRegBit(MSK_READ_NEXT_DATA);
+        resetControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
+        
+    }
+
+    private boolean requireReadNextData() {
+        return getControlRegBit(MSK_READ_NEXT_DATA);
+        /*
+        if((this.registers[controlReg] & MSK_READ_NEXT_DATA) != 0) {
             return true;
         }
         return false;
+        */
     }
-
-    private void resetWriteData() {
-        this.registers[controlReg] = this.registers[controlReg] & (~WRITE_DATA);
-    }
-
-    private void resetReadData() {
-        this.registers[controlReg] = this.registers[controlReg] & (~READ_NEXT_DATA);
-    }
-
-    private boolean requireReadData() {
-
-        if((this.registers[controlReg] & READ_NEXT_DATA) != 0) {
-            return true;
+    
+    private static class OutputData {
+        public int Data, Format;
+        
+        public OutputData(int data, int format) {
+            this.Data = data;
+            this.Format = format;
         }
-        return false;
+    }
+    
+    public ArrayList<OutputData> outputBuffer = new ArrayList<OutputData>();
+    
+    private void writeData() {
+        /* 
+        if(outputFormat() == FORMAT_INT) {
+            System.out.print(this.registers[outDataReg]);
+        } else {
+            System.out.print((char)this.registers[outDataReg]);
+        }
+         */
+        OutputData data = new OutputData(this.registers[outDataReg], outputFormat());
+        outputBuffer.add(data);
+        outputDataFromBuffer();
+        resetControlRegBit(MSK_WRITE_DATA);
+    }
+    
+    private void outputDataFromBuffer() {
+        if(outputBuffer.size() != 0) {
+            outputDataToTerminal(outputBuffer.get(0));
+            outputBuffer.remove(0);
+        }
+        //output buffer no longer full
+        this.resetControlRegBit(MSK_OUT_BUFFER_FULL);
+    }
+    
+    private void outputDataToTerminal(OutputData data) {
+        if(FORMAT_INT == data.Format) {
+            System.out.print(data.Data);
+        } else {
+            System.out.print((char)data.Data);
+        }
     }
 
     private void execute(){
 
         if(requireWriteData()) {
-            if(outputFormat() == FORMAT_INT) {
-                System.out.print(this.registers[inDataReg]);
-            } else {
-                System.out.print((char)this.registers[outDataReg]);
-            }
-            resetWriteData();
-            return;
+            writeData();
+            //return;
         }
-        if(requireReadData()) {
-            assert(false);
-            resetReadData();
-            return;
+        if(requireReadNextData()) {
+            prepareReadNextData();
+            //return;
         }
     }
 
