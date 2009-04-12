@@ -25,7 +25,7 @@ public class Emulator {
             run(inFile);
             
             
-            
+            //testOnly();
             
             /*
             byte a[] = new byte[100];
@@ -49,9 +49,9 @@ public class Emulator {
             th.enable(true);
             th.start();
             int i=0;
-            while(th.buffer.size() < 10) {
+            while(th.buffer.size() == 0) {
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(1000);
                 } catch(Exception e) {
                 }
                 System.out.print(i);
@@ -70,6 +70,7 @@ public class Emulator {
                 emu.advanceTime();
             }
             emu.dumpRegs();
+            emu.stopEmulation();
         }
         
         private Processor processor;
@@ -106,6 +107,13 @@ public class Emulator {
                 component.advanceTime();
             }
             processor.advanceTime();
+        }
+        
+        public void stopEmulation() {
+            for(Component component: components) {
+                component.stop();
+            }
+            processor.stop();
         }
         
         public boolean isHalt() { return this.processor.isHalt(); }

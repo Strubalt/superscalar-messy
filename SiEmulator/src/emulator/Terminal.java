@@ -1,30 +1,37 @@
 package emulator;
-import java.lang.*;
+//import java.lang.*;
 import java.util.*;
 
-public class Terminal extends Component{
+class Terminal extends Component{
 
     static class ReadThread extends Thread {
          
         public ArrayList<Integer> buffer = new ArrayList<Integer>();
         String newline = System.getProperty("line.separator");
         private boolean isEnable;
-        private int bufferSize;
+        private int bufferSize = 1;
         
         public void run() {
             
             while(this.isEnable) {
                 try {
-                    int input = System.in.read();
-                    addToBuffer(input);
-                    if(!newline.equals((char)input))
-                        input = System.in.read();
+                    if(0 != System.in.available()) {
+                        int input = System.in.read();
+                        addToBuffer(input);
+                        if(!newline.equals((char)input))
+                            input = System.in.read();
+                        
+                    }
+                    
                     
                 } catch(Exception e) {
 
                 }
             }
+            
         }
+        
+        
         
         public void enable(boolean isEnable) {
             this.isEnable = isEnable;
@@ -64,6 +71,7 @@ public class Terminal extends Component{
     int id, baseAddr, terminalNumber;
     Terminal.ReadThread readThread;
     int registers[];
+    private int outputBufferSize = 1;
 
     public Terminal(int id, int base, int terminalNumber) {
             super(2);
@@ -75,6 +83,14 @@ public class Terminal extends Component{
             readThread.enable(true);
             readThread.setBufferSize(32);
             readThread.start();
+    }
+    
+    @Override
+    void stop() {
+        readThread.enable(false);
+        
+        
+        //readThread.interrupt();
     }
 
     @Override
@@ -98,7 +114,22 @@ public class Terminal extends Component{
             bus.ready = true;
         }
         
-        
+    }
+    
+    void setOutputBufferSize(int size) {
+        this.outputBufferSize = size;
+    }
+    
+    int getOutputBufferSize() {
+        return this.outputBufferSize;
+    }
+    
+    void setInputBufferSize(int size) {
+        this.readThread.setBufferSize(size);
+    }
+    
+    int getInputBufferSize(){
+        return this.readThread.getBufferSize();
     }
     
     final int MSK_OUT_BUFFER_FULL = 1;          //bit 0

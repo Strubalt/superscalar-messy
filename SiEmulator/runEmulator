@@ -1,0 +1,16 @@
+export BUILD_PATH=$(pwd)/build/classes
+export SRC_PATH=$(pwd)/src
+
+if [ -f $BUILD_PATH/emulator/Emulator.class ]; then
+  echo ""
+elif [ -f $SRC_PATH/emulator/Emulator.java ]; then
+  echo "Compiling...."
+  ant
+else
+  echo "Files not found."
+fi
+
+if [ -f $BUILD_PATH/emulator/Emulator.class ]; then
+  java -cp $BUILD_PATH emulator.Emulator $1 | tee emulator.log
+fi
+exit 0
