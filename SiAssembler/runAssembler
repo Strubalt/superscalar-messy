@@ -1,0 +1,13 @@
+if [ -f ./bin/AsmMain.class ]; then
+  echo ""
+elif [ -f ./src/AsmMain.java ]; then
+  echo "Compiling...."
+  ant
+else
+  echo "Files not found."
+fi
+
+if [ -f ./bin/AsmMain.class ]; then
+  java -cp ./bin AsmMain $1 $2
+fi
+exit 0

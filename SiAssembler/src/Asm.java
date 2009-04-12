@@ -33,16 +33,40 @@ public class Asm {
 				}
 			}
 			
-			java.io.FileOutputStream fw = null;
+			java.io.FileWriter fw = null;
 			try {
-				fw = new java.io.FileOutputStream(f);
-				fw.write(data);
+				fw = new java.io.FileWriter(f);
+				for(int addr=0; addr<data.length; addr+=4) {
+					fw.write("0x" + Integer.toHexString(addr)+" ");
+					fw.write(getBinaryString(data[addr+3]));
+					fw.write(getBinaryString(data[addr+2]));
+					fw.write(getBinaryString(data[addr+1]));
+					fw.write(getBinaryString(data[addr+0]));
+					fw.write("\n");
+				}
+				
 			}finally {
 				if(null != fw){
 					fw.close();
 				}
 			}
 		}
+	}
+	static ArrayList zeros = new ArrayList();
+	private static String getBinaryString(byte data){
+		if(zeros.size()==0){
+			zeros.add(""); zeros.add("0");
+			zeros.add("00"); zeros.add("000");
+			zeros.add("0000"); zeros.add("00000");
+			zeros.add("000000"); zeros.add("0000000");
+			zeros.add("00000000");
+		}
+		int iData = data & 0xFF;
+		String ret = Integer.toBinaryString(iData);
+		if(ret.length() != 8){
+			ret = zeros.get(8-ret.length()) + ret;
+		}
+		return ret;
 	}
 	
 	private static byte[] encode(
@@ -58,22 +82,21 @@ public class Asm {
 			for(int idx=0; idx<data.length; ++idx){
 				result[i*4+idx] = data[idx];
 			}
+/*
 			String addr = Integer.toHexString(4*i);
 			
 			System.out.printf("0x%s", new Object[]{addr});
 			System.out.print("\t");
 			for(int j=data.length-1; j>=0; --j){
-				int temp = data[j];
-				if(temp<0) {
-					temp = temp & 0X000000FF;
-				}	
-				String t = Integer.toHexString(temp);
+				
+				String t = getBinaryString(data[j]);
+				
 				if(t.length()==1) t = "0" + t;
 				System.out.print(t);
 				System.out.print(" ");			
 			}
 			System.out.println();
-	
+*/	
 		}
 		return result;
 		//return encodedResults;
