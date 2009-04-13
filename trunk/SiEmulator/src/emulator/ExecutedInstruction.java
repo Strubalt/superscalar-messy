@@ -18,11 +18,12 @@ public class ExecutedInstruction {
     }
 
     boolean requireWriteBack;
-    int     writeBackRegister;
-    int     data;
-    
+    int     targetRegister;
+    //int     data;
+    int     regData;
+    int     memData;
     int     memoryAddress;
-    boolean memoryRW;
+    boolean memoryReadThenWrite;
     boolean memoryAccess;
     boolean memoryRWbar;
     

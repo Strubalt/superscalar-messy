@@ -10,7 +10,7 @@ import java.util.*;
  *
  * @author ys8511
  */
-public class MMU {
+public class MMU extends Component {
     
     private boolean instrReady;
     private int instruction;
@@ -24,6 +24,10 @@ public class MMU {
 	
     
     public MMU() {
+        super(0);
+    }
+    
+    void advanceTime() {
         
     }
     
@@ -50,6 +54,9 @@ public class MMU {
     }
     
     public void readData(int dataAddr) {
+        if(this.dataReady && this.dataAddr == dataAddr) {
+            return;
+        }
         this.dataAddr = dataAddr;
         this.dataReady = checkReadSignals(dataAddr);
         if(this.dataReady) {

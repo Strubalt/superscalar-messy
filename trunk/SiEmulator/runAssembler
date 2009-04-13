@@ -1,0 +1,8 @@
+
+
+if [ -f ../SiAssembler/bin/AsmMain.class ]; then
+  java -cp ../SiAssembler/bin AsmMain $1 $2
+else
+  echo "Files not found."
+fi
+exit 
