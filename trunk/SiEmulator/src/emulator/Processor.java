@@ -27,7 +27,7 @@ class Processor extends Component {
 
     private int stage; //IF=0, DEC=1, EX, MEM, WB
    
-    private int pc;
+    private int programCounter;
     private boolean isHalt; //need to make sure all instructions have finished
     private MMU mmu = new MMU();
     private DecodedInstruction fetchedInstruction;
@@ -42,7 +42,7 @@ class Processor extends Component {
 
     public Processor() {
             super(0);
-            pc = 0;
+            programCounter = 0;
             cycle = 0;
             stage = STG_FETCH;
             registers = new int[64];
@@ -56,23 +56,14 @@ class Processor extends Component {
             mmu.attachInterconnect(connection);
     }
 
-    
-
-    @Override
-    void advanceTime() {
+    void advanceTime_Basic() {
+        cycle+=1;
         switch(stage) {
             case STG_FETCH:
-
-                if(hasInterrupt()) {
-                    cycle += 1;
-                    processHWI();
-                } else {
-                    if(fetchInstruction()) {
-                        cycle += 1;
-                        stage += 1;
-                    }
+                //cycle+=1;
+                if(fetch()) {
+                    stage += 1;
                 }
-
                 break;
             case STG_DECODE:
                 if(decode()) {
@@ -83,6 +74,10 @@ class Processor extends Component {
                 if(execute()) {
                     stage += 1;
                 }
+                if(executedInstruction.requireModifyPC)
+                    programCounter = executedInstruction.newPC;
+                else
+                    programCounter += 4;
                 break;
             case STG_MEM:
                 if(memoryAccess()) {
@@ -97,19 +92,39 @@ class Processor extends Component {
         }
     }
     
+    void advanceTimePipeline() {
+        cycle+=1;
+        writeBack();
+        memoryAccess();
+        execute();
+        decode();
+        boolean next = fetch();
+        if(null != executedInstruction && executedInstruction.requireModifyPC) {
+            programCounter = executedInstruction.newPC;
+        } else if(next) {
+            programCounter += 4;
+        }
+    }
+
+    @Override
+    void advanceTime() {
+        this.advanceTime_Basic();
+    }
+    
     private boolean INTEnable() {
         int reg = this.getRegSafe(REG_INTERRUPT);
         return ((reg >> 31) != 0);
     }
     
-    private void enableInterrupt(boolean isEnable) {
-        
+    
+    private int getEnableInterruptResult(boolean isEnable) {
         int reg = this.getRegSafe(REG_INTERRUPT);
         if(isEnable) {
             reg = reg | 0x80000000;
         } else {
             reg = reg & 0x7FFFFFFF;
         }
+        return reg;
     }
 
     private boolean hasInterrupt() {
@@ -118,18 +133,32 @@ class Processor extends Component {
         return false;
     }
 
-    private void processHWI() {
+    private boolean canStartProcessInterrupt() {
         
-        this.setRegSafe(REG_LRI, pc);
-        pc = 4;
-        enableInterrupt(false);
+        if(null == memAccessedInstruciton && 
+           null == executedInstruction &&
+           null == decodedInstruction &&
+           null == fetchedInstruction)
+            return true;
+        else
+            return false;
+    }
+    
+    private void processHWI() {
+        if(!canStartProcessInterrupt()) return;
+        
+        this.setReg(REG_LRI, programCounter);
+        programCounter = 4;
+        //enableInterrupt(false);
+        this.registers[this.REG_INTERRUPT] = getEnableInterruptResult(false);
     }
 
     private boolean fetch() {
         if(hasInterrupt()) {
-            cycle += 1;
             processHWI();
         } else {
+            if(null != fetchedInstruction) return false;
+            if(!fetchStageCheck()) return false;
             if(fetchInstruction()) {
                 return true;
             }
@@ -137,13 +166,30 @@ class Processor extends Component {
         return false;
     }
     
+    private boolean fetchStageCheck() {
+        if(null != fetchedInstruction) {
+            if(fetchedInstruction.isBranch()) return false;
+        }
+        if(null != decodedInstruction) {
+            if(decodedInstruction.isBranch()) return false;
+        }
+        return true;
+    }
+    
+   
+    
+    
     private boolean decode(){
+        if(null != decodedInstruction) return false;
+        
         decodedInstruction = this.fetchedInstruction;
         this.fetchedInstruction = null;
         return true;
     }
 
     private boolean execute() {
+        if(null != executedInstruction) return false;
+        
         if(null != decodedInstruction) {
             executedInstruction = new ExecutedInstruction(decodedInstruction);
             execute(decodedInstruction, executedInstruction);
@@ -161,7 +207,8 @@ class Processor extends Component {
     }
 
     private void execute(DecodedInstruction instr, ExecutedInstruction result) {
-        boolean pcAdd4 = true;
+        //boolean pcAdd4 = true;
+        int regIntResult;
         switch(instr.getOpCode()){
             case OpCodeTable.ADD:   //Ri = Rj + Rk
                 setResult(result, instr.getRegi(), 
@@ -279,81 +326,111 @@ class Processor extends Component {
                 setResult(result, instr.getRegk(), getRegSafe(instr.getRegk()), true);
                 break;
             case OpCodeTable.DISABLE: //Disable interrupts
-                enableInterrupt(false);
+                //enableInterrupt(false);
+                regIntResult = getEnableInterruptResult(false);
+                setResult(result, this.REG_INTERRUPT, regIntResult, false);
                 break;               
             case OpCodeTable.ENABLE://Enable interrupts
-                enableInterrupt(true);
+                //enableInterrupt(true);
+                regIntResult = getEnableInterruptResult(true);
+                setResult(result, this.REG_INTERRUPT, regIntResult, false);
                 break;    
             case OpCodeTable.SWI:   //ENABLE=0; LRI = PC; PC = 8
                                     //r8--r15 should be saved away.
                                     //Argument passed in r0
-                enableInterrupt(false);
-                setRegSafe(REG_LRI, pc + 4);
-                pc = 8;
+                assert(false);
+                //enableInterrupt(false);
+                this.registers[this.REG_INTERRUPT] = getEnableInterruptResult(false);
+                setReg(REG_LRI, programCounter + 4);
+                programCounter = 8;
                 saveReg8_15();
-                pcAdd4 = false;
+                //pcAdd4 = false;
                 break;
             case OpCodeTable.RESUME: //PC = LRI; ENABLE=1;
                                      //r8--r15 should be restored.
                                      //Result passed in r0
-                enableInterrupt(true);
-                pc = getRegSafe(REG_LRI);
+                assert(false);
+                //enableInterrupt(true);
+                regIntResult = getEnableInterruptResult(true);
+                setResult(result, this.REG_INTERRUPT, regIntResult, false);
+                //programCounter = getRegSafe(REG_LRI);
+                //RING~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 restoreReg8_15();
-                pcAdd4 = false;
+                result.requireModifyPC = true;
+                result.newPC = getRegSafe(REG_LRI);
+                //pcAdd4 = false;
                 break;
             case OpCodeTable.NOP:   //
                 break;
             case OpCodeTable.B:     //PC = Rj
-                pc = getRegSafe(instr.getRegj());
-                pcAdd4=false;
+                result.requireModifyPC = true;
+                result.newPC = getRegSafe(instr.getRegj());
+                //pcAdd4=false;
                 break;
             case OpCodeTable.BEQZ:  //IF Rj=0  THEN PC=PC+x
                 if(getRegSafe(instr.getRegj()) == 0) {
-                    pc += instr.getImmediate();
-                    pcAdd4=false;
+                    result.requireModifyPC = true;
+                    result.newPC = instr.instructionAddress + instr.getImmediate();
+                    //pc += instr.getImmediate();
+                    //pcAdd4=false;
                 }
                 break;
             case OpCodeTable.BNEZ:  //IF Rj!=0 THEN PC=PC+x
                 if(getRegSafe(instr.getRegj()) != 0) {
-                    pc += instr.getImmediate();
-                    pcAdd4=false;
+                    result.requireModifyPC = true;
+                    result.newPC = instr.instructionAddress + instr.getImmediate();
+                    //pcAdd4=false;
                 }
                 break;
             case OpCodeTable.BGEZ:  //IF Rj>=0 THEN PC=PC+x
                 if(getRegSafe(instr.getRegj()) >= 0) {
-                    pc += instr.getImmediate();
-                    pcAdd4=false;
+                    result.requireModifyPC = true;
+                    result.newPC = instr.instructionAddress + instr.getImmediate();
+                    //pcAdd4=false;
                 }
                 break;
             case OpCodeTable.BLTZ:  //IF Rj<0  THEN PC=PC+x
                 if(getRegSafe(instr.getRegj()) < 0) {
-                    pc += instr.getImmediate();
-                    pcAdd4=false;
+                    result.requireModifyPC = true;
+                    result.newPC = instr.instructionAddress + instr.getImmediate();
+                    //pcAdd4=false;
                 }
                 break;
-
-            case OpCodeTable.BLR:   //LR = PC; PC = PC+x
-                setRegSafe(REG_LR, pc + 4);
-                pc = pc + instr.getImmediate();
-                pcAdd4 = false;
-                break;
             case OpCodeTable.BR:    //PC = PC+x
-                pc = pc + instr.getImmediate();
-                pcAdd4 = false;
+                result.requireModifyPC = true;
+                result.newPC = instr.instructionAddress + instr.getImmediate();
+                //pc = pc + instr.getImmediate();
+                //pcAdd4 = false;
                 break;
+            case OpCodeTable.BLR:   //LR = PC; PC = PC+x
+                //setReg(REG_LR, pc + 4);
+                //check-----------------------------------------------
+                setResult(result, REG_LR, instr.instructionAddress+4, false);
+                result.requireModifyPC = true;
+                result.newPC = instr.instructionAddress + instr.getImmediate();
+                //pcAdd4 = false;
+                break;
+
             case OpCodeTable.BL:    //LR = PC; PC = Rj
-                setRegSafe(REG_LR, pc + 4);
-                pc = getRegSafe(instr.getRegj());
-                pcAdd4 = false;
+                //setReg(REG_LR, pc + 4);
+                //check-----------------------------------------------
+                setResult(result, REG_LR, instr.instructionAddress+4, false);
+                result.requireModifyPC = true;
+                result.newPC = getRegSafe(instr.getRegj());
+                //pc = getRegSafe(instr.getRegj());
+                //pcAdd4 = false;
                 break;
             case OpCodeTable.RETURN: //PC = LR
-                pc = getRegSafe(REG_LR);
-                pcAdd4 = false;
+                
+                result.requireModifyPC = true;
+                result.newPC = getRegSafe(REG_LR);
+                //pc = getRegSafe(REG_LR);
+                //pcAdd4 = false;
                 break;
         }
-        if(pcAdd4) {
-            pc+=4;
-        }
+        //if(pcAdd4) {
+        //    pc+=4;
+        //}
     }
 
     private int temp[] = new int[8];
@@ -365,19 +442,19 @@ class Processor extends Component {
 
     private void restoreReg8_15() {
         for(int i=0; i<8; ++i) {
-            setRegSafe(8+i, temp[i]);
+            setReg(8+i, temp[i]);
         }
     }
 
     private boolean memoryAccess() {
+        if(null != memAccessedInstruciton) return false;
+        
         if(null != executedInstruction) {
-
             if(executedInstruction.memoryAccess) {
                 if(!accessMemory()) {
                     return false;
                 }
             }
-
         }
         memAccessedInstruciton = executedInstruction;
                 executedInstruction = null;
@@ -411,13 +488,13 @@ class Processor extends Component {
     }
 
     private boolean writeBack() {
+        
         if(null != memAccessedInstruciton) {
             if(memAccessedInstruciton.requireWriteBack) {
 
-                setRegSafe(memAccessedInstruciton.writeBackRegister, 
+                setReg(memAccessedInstruciton.writeBackRegister, 
                         memAccessedInstruciton.data);
             }
-            
             
             if(memAccessedInstruciton.isHalt) {
                 isHalt = true;
@@ -430,10 +507,11 @@ class Processor extends Component {
 
 
     private boolean fetchInstruction(){
-        this.mmu.readInstruction(this.pc);
+        this.mmu.readInstruction(this.programCounter);
         if(this.mmu.getInstrReady()) {
             //this.fetchedInstruction = this.mmu.getInstruction();
-            fetchedInstruction = new DecodedInstruction(this.mmu.getInstruction());
+            fetchedInstruction = new DecodedInstruction(
+                    this.mmu.getInstruction(), this.programCounter);
             //System.out.println(Integer.toBinaryString(this.fetchedInstruction));
 
             return true;
@@ -450,7 +528,7 @@ class Processor extends Component {
         return registers[regNumber];
     }
     
-    private void setRegSafe(int regNumber, int value) {
+    public void setReg(int regNumber, int value) {
         registers[regNumber] = value;
     }
     
@@ -459,10 +537,7 @@ class Processor extends Component {
         return registers[regNumber];
     }
 
-    //don't use, only for debugging
-    public void setReg(int regNumber, int value) {
-        registers[regNumber] = value;
-    }
+
 
     //only for debugging
     public int getRing() {
@@ -474,19 +549,19 @@ class Processor extends Component {
     }
 
     public void setPC(int address) {
-            this.pc = address;
+            this.programCounter = address;
     }
 
     public void executeOpcode(int instruction) {
         int op = getOp(instruction);
-        int tempPC = pc;
-        decodedInstruction = new DecodedInstruction(instruction);
+        int tempPC = programCounter;
+        decodedInstruction = new DecodedInstruction(instruction, programCounter);
         executedInstruction = new ExecutedInstruction(decodedInstruction);
         execute(decodedInstruction, executedInstruction);
         writeBack();
         decodedInstruction = null;
         executedInstruction = null;
-        pc = tempPC;
+        programCounter = tempPC;
     }
 
     void dumpRegs() {

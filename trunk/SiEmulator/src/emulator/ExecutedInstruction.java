@@ -28,4 +28,7 @@ public class ExecutedInstruction {
     
     boolean isHalt;
     
+    boolean requireModifyPC;
+    int newPC;
+    
 }

@@ -195,7 +195,7 @@ class Terminal extends Component{
                 int data = readThread.readBuffer();
                 this.registers[inDataReg] = data;
                 this.setControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
-                
+                this.bus.isInterrupted = true;
             }
         }
     }

@@ -20,6 +20,7 @@ public class DecodedInstruction {
     private int regk;
     private int immediate;
     
+    public int instructionAddress;
     public int getOpType() { return this.opType; }
     public int getOpCode() { return this.opCode; }
     public int getRegi() { return regi; }
@@ -27,10 +28,11 @@ public class DecodedInstruction {
     public int getRegk() { return regk; }
     public int getImmediate() { return immediate; }
     
-    public DecodedInstruction(int instruction) {
+    public DecodedInstruction(int instruction, int pc) {
         if(table == null) {
             table = new OpCodeTable();
         }
+        instructionAddress = pc;
         opCode = (instruction >> 26) & 0x3F;
         //System.out.println(Integer.toBinaryString(instruction));
         //System.out.println(opCode);
@@ -39,6 +41,21 @@ public class DecodedInstruction {
         regi = (instruction >> 14) & 0x3F;
         regk = (instruction >> 8) & 0x3F;
         immediate = decodeImmediate(instruction, opType);
+    }
+    
+    public boolean isBranch() {
+        switch(opType) {
+            case OpCodeTable.B: case OpCodeTable.BEQZ:
+            case OpCodeTable.BGEZ: case OpCodeTable.BL:
+            case OpCodeTable.BNEZ: case OpCodeTable.BLTZ:
+            case OpCodeTable.BLR: case OpCodeTable.BR:
+            case OpCodeTable.RETURN: case OpCodeTable.RESUME:
+            case OpCodeTable.SWI:
+                return true;
+            default:
+                return false;
+        }
+        
     }
             
     private int decodeImmediate(int instruction, int opType) {
