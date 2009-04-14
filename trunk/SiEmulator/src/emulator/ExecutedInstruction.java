@@ -16,7 +16,12 @@ public class ExecutedInstruction {
     public ExecutedInstruction(DecodedInstruction instruction) {
         this.instr = instruction;
     }
+    
+    public int instrAddress() {
+        return instr.instructionAddress;
+    }
 
+    boolean hasException;
     boolean requireWriteBack;
     int     targetRegister;
     //int     data;

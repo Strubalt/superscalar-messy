@@ -11,6 +11,11 @@ else
 fi
 
 if [ -f $BUILD_PATH/emulator/Emulator.class ]; then
+ if [ $# -eq 1 ]; then
   java -cp $BUILD_PATH emulator.Emulator $1 | tee emulator.log
+ fi
+ if [ $# -eq 2 ]; then
+  java -cp $BUILD_PATH emulator.Emulator $1 $2 | tee emulator.log
+ fi
 fi
 exit 0

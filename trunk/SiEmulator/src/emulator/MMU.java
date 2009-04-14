@@ -10,7 +10,7 @@ import java.util.*;
  *
  * @author ys8511
  */
-public class MMU extends Component {
+public class MMU {
     
     private boolean instrReady;
     private int instruction;
@@ -20,20 +20,25 @@ public class MMU extends Component {
     private int data;
     private int dataAddr;
     
-    private ArrayList<Interconnect> interconnects = new ArrayList<Interconnect>();
+    //private ArrayList<Interconnect> interconnects = new ArrayList<Interconnect>();
+    private Interconnect bus;
 	
     
     public MMU() {
-        super(0);
+        
     }
     
     void advanceTime() {
-        
+        //Interconnect bus = getInterconnect(addr);
+        if(bus.en && bus.ready && !bus.rwbar) {
+            bus.en = false;
+            bus.ready = false;
+        }
     }
     
     void attachInterconnect(Interconnect connection) {
 		// TODO Auto-generated method stub
-		this.interconnects.add(connection);		
+	this.bus = connection;
     }
     
     public boolean getInstrReady() { return instrReady; }
@@ -46,9 +51,8 @@ public class MMU extends Component {
     
     public void readInstruction(int instrAddr) {
         this.instrAddr = instrAddr;
-        this.instrReady = checkReadSignals(instrAddr);
+        this.instrReady = checkReadSignals(instrAddr, true);
         if(this.instrReady) {
-            Interconnect bus = getInterconnect(dataAddr);
             this.instruction = bus.data;
         }
     }
@@ -58,34 +62,33 @@ public class MMU extends Component {
             return;
         }
         this.dataAddr = dataAddr;
-        this.dataReady = checkReadSignals(dataAddr);
+        this.dataReady = checkReadSignals(dataAddr, false);
         if(this.dataReady) {
-            Interconnect bus = getInterconnect(dataAddr);
             this.data = bus.data;
         }
     }
     
+    private boolean isInstr;
     //Suppose everything can finish in one cycle
     //Add Ready Signal for extension
-    public boolean checkReadSignals(int addr) {
-        Interconnect bus = getInterconnect(addr);
-        if(bus.en && bus.ready && !bus.rwbar) {
-            bus.en = false;
-            bus.ready = false;
+    private boolean checkReadSignals(int addr, boolean isInstr) {
+        if(bus.en && bus.address != addr && this.isInstr == isInstr) {
+                bus.en = false;
         }
-        
         if(bus.en) {
             if(bus.ready && bus.address == addr) {
                 bus.ready = false;
                 bus.en = false;
                 return true;  
             }
+            
             return false;
         } else {
             bus.address = addr;
             bus.en = true;
             bus.ready = false;
             bus.rwbar = true;
+            this.isInstr = isInstr;
             return false;
         }
     }
@@ -93,15 +96,15 @@ public class MMU extends Component {
     public void writeData(int dataAddr, int data) {
         this.dataAddr = dataAddr;
         this.data = data;
-        Interconnect bus = getInterconnect(dataAddr);
-        
+        this.isInstr = false;
         bus.address = dataAddr;
         bus.data = data;
         bus.rwbar = false;
         bus.en = true;
         bus.ready = false;
     }
-    
+
+/*
     private Interconnect getInterconnect(int addr) {
         assert(this.interconnects.size() != 0);
         Interconnect result = null; 
@@ -122,4 +125,5 @@ public class MMU extends Component {
         assert(result != null);
         return result;
     }
+ */ 
 }
