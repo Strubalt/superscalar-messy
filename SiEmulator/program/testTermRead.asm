@@ -14,7 +14,7 @@ movi r58, a7
 muli  r58, r58, a8
 muli  r58, r58, a8
 muli  r58, r58, a8
-movi r13, 200000
+movi r13, 200
 TestSignExtend:
 
 movi r0, 0

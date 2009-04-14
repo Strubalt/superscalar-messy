@@ -15,6 +15,7 @@ public class MMU {
     private boolean instrReady;
     private int instruction;
     private int instrAddr;
+    private Cache instrCache;
     
     private boolean dataReady;
     private int data;
@@ -25,7 +26,8 @@ public class MMU {
 	
     
     public MMU() {
-        
+        instrCache = new Cache(16,1);
+       
     }
     
     void advanceTime() {
@@ -51,10 +53,18 @@ public class MMU {
     
     public void readInstruction(int instrAddr) {
         this.instrAddr = instrAddr;
-        this.instrReady = checkReadSignals(instrAddr, true);
-        if(this.instrReady) {
-            this.instruction = bus.data;
+        if(instrCache.exist(instrAddr)) {
+            this.instrReady = true;
+            this.instruction = instrCache.read(instrAddr);
+        } else {
+            this.instrReady = checkReadSignals(instrAddr, true);
+            if(this.instrReady) {
+                this.instruction = bus.data;
+                instrCache.write(instrAddr, instruction);
+            }
         }
+        
+        
     }
     
     public void readData(int dataAddr) {
