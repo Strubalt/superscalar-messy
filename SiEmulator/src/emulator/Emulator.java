@@ -13,16 +13,19 @@ public class Emulator {
 	public static void main(String[] args) {
             
             String inFile = null;
-
+            boolean isPipeline = false;
             //System.out.println(new File(System.getProperty("user.dir")));
-            if(args.length != 1) {
+            if(args.length < 1) {
                     System.out.println("Please enter .out filename.");
                     return;
-            } else {
+            } else if(args.length == 1) {
                     inFile = args[0];
+            } else if(args.length == 2) {
+                isPipeline = true;
+                inFile = args[1];
             }
             
-            run(inFile);
+            run(inFile, isPipeline);
             
             
             //testOnly();
@@ -49,13 +52,15 @@ public class Emulator {
             th.enable(true);
             th.start();
             int i=0;
-            while(th.buffer.size() == 0) {
+            while(th.buffer.size() < 10) {
                 try {
                     Thread.sleep(1000);
                 } catch(Exception e) {
                 }
                 System.out.print(i);
                 i+=1;
+                
+                
             }
             System.out.println();
             th.enable(false);
@@ -63,14 +68,15 @@ public class Emulator {
             System.out.println(th.buffer.size());
         }
         
-        private static void run(String inFile) {
+        private static void run(String inFile, boolean isPipeline) {
             int initialMem[] = readInputFile(inFile);
             if(initialMem != null) {
-                Emulator emu = new Emulator(initialMem);
+                Emulator emu = new Emulator(initialMem, isPipeline);
                 while(!emu.isHalt()){
                     emu.advanceTime();
                 }
                 emu.dumpRegs();
+                        
                 emu.stopEmulation();
             } else {
                 System.out.println("Input file does not exist.");
@@ -84,12 +90,12 @@ public class Emulator {
         private Interconnect bus;
         ArrayList<Component> components = new ArrayList<Component>();
         
-        public Emulator(int initialMem[]) {
+        public Emulator(int initialMem[], boolean isPipeline) {
             int terminalBaseAddr = 0xf00;
             
             this.memory = new Memory(900, 0, initialMem);
             terminal = new Terminal(1, terminalBaseAddr, 1);
-            processor = new Processor();
+            processor = new Processor(isPipeline);
 
             bus = new WireInterconnect(2, 
                     new Component[]{processor, memory, terminal});

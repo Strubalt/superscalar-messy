@@ -3,7 +3,7 @@ package emulator;
 
 
 class Processor extends Component {
-	
+    
     final static int REG_LR = 53;
     final static int REG_LRI = 52;
     final static int REG_SP = 51;
@@ -29,6 +29,8 @@ class Processor extends Component {
    
     private int programCounter;
     private boolean isHalt; //need to make sure all instructions have finished
+    private boolean hasException;
+    private int exceptionAddress;
     private MMU mmu = new MMU();
     private DecodedInstruction fetchedInstruction;
     private DecodedInstruction decodedInstruction;
@@ -36,32 +38,37 @@ class Processor extends Component {
     private ExecutedInstruction memAccessedInstruciton;
     private int cycle;
     //private boolean INTEnable;
+    private boolean isPipeline;
 
 
 
-
-    public Processor() {
+    public Processor(boolean isPipeline) {
             super(0);
+            this.isPipeline = isPipeline;
             programCounter = 0;
             cycle = 0;
             stage = STG_FETCH;
             registers = new int[64];
-            registers[REG_LIMIT]=0x7FFFFFFF;
+            
+            registers[REG_LIMIT] = 0x7FFFFFFF;
+            registers[REG_RING] = 0;
+            registers[REG_TIMER] = -1;  //disable Timer Interrupt
     }
 
-
-    void attachInterconnect(Interconnect connection) {
-            // TODO Auto-generated method stub
-            bus = connection;
-            mmu.attachInterconnect(connection);
+    private void advanceCycle() {
+        cycle += 1;
+        int count = getReg(REG_TIMER);
+        if(count > 0) this.setReg(REG_TIMER, count-1);
     }
-
-    void advanceTime_Basic() {
-        cycle+=1;
+    
+    void advanceTimeBasic() {
+        //cycle+=1;
+        
         switch(stage) {
             case STG_FETCH:
-                //cycle+=1;
+                
                 if(fetch()) {
+                    advanceCycle();
                     stage += 1;
                 }
                 break;
@@ -74,6 +81,7 @@ class Processor extends Component {
                 if(execute()) {
                     stage += 1;
                 }
+                
                 if(executedInstruction.requireModifyPC)
                     programCounter = executedInstruction.newPC;
                 else
@@ -90,122 +98,75 @@ class Processor extends Component {
                 }
                 break;            
         }
+        this.mmu.advanceTime();
     }
     
     void advanceTimePipeline() {
-        cycle+=1;
+        advanceCycle();
+       
         writeBack();
         memoryAccess();
         execute();
         decode();
-        boolean next = fetch();
+        boolean next = fetch();     //check if there is stall
         if(null != executedInstruction && executedInstruction.requireModifyPC) {
             programCounter = executedInstruction.newPC;
+            this.fetchedInstruction = null;
+            this.decodedInstruction = null;
         } else if(next) {
             programCounter += 4;
         }
+        
+        this.mmu.advanceTime();
     }
-
+    
     @Override
     void advanceTime() {
-        //this.advanceTime_Basic();
-        this.advanceTimePipeline();
-    }
-    
-    private boolean INTEnable() {
-        int reg = this.getRegExe(REG_INTERRUPT);
-        return ((reg >> 31) != 0);
-    }
-    
-    
-    private int getEnableInterruptResult(boolean isEnable) {
-        int reg = this.getRegExe(REG_INTERRUPT);
-        if(isEnable) {
-            reg = reg | 0x80000000;
-        } else {
-            reg = reg & 0x7FFFFFFF;
-        }
-        return reg;
+        //advanceTimePipeline();
+        if(this.isPipeline) this.advanceTimePipeline();
+        else this.advanceTimeBasic();
     }
 
-    private boolean hasHWInterrupt() {
-        if(!this.INTEnable()) return false;
-        if(bus.isInterrupted) return true;
-        return false;
-    }
-
-    private boolean canStartProcessInterrupt() {
-        
-        if(null == memAccessedInstruciton && 
-           null == executedInstruction &&
-           null == decodedInstruction &&
-           null == fetchedInstruction)
-            return true;
-        else
-            return false;
-    }
-    
-    private boolean processHWI() {
-        if(!canStartProcessInterrupt()) return false;
-        
-        this.setReg(REG_LRI, programCounter);
-        programCounter = 4;
-        //enableInterrupt(false);
-        this.registers[this.REG_INTERRUPT] = getEnableInterruptResult(false);
-        return true;
-    }
-    
-    private boolean processSWI()
-    {
-        if(!canStartProcessInterrupt()) return false;
-        this.registers[this.REG_INTERRUPT] = getEnableInterruptResult(false);
-        setReg(REG_LRI, programCounter + 4);
-        programCounter = 8;
-        saveReg8_15();
-        return true;
-    }
-    
-    
-    
-    private boolean processRESUME()
-    {
-        if(!canStartProcessInterrupt()) return false;
-        
-        this.setReg(this.REG_INTERRUPT, getEnableInterruptResult(true));
-        //regIntResult = getEnableInterruptResult(true);
-        //setWrBkRegister(result, this.REG_INTERRUPT, regIntResult);
-        restoreReg8_15();
-        this.setReg(this.REG_RING, 3);
-        programCounter = getReg(REG_LRI);
-        return true;
-    }
-
-    private boolean fetch() {
-        if(hasHWInterrupt()) {
-            return processHWI();
-            
-        }else {
-            if(null != fetchedInstruction) return false;
-            if(!fetchStageCheck()) return false;
-            if(fetchInstruction()) {
-                int opCode = this.fetchedInstruction.getOpCode();
-                if(opCode == OpCodeTable.SWI) {
-                    if(processSWI()) {
-                        fetchedInstruction = null;
-                        return true;
-                    }
-                } else if(opCode == OpCodeTable.RESUME) {
-                    if(processRESUME()) {
-                        fetchedInstruction = null;
-                        return true;
-                    }
-                } else {
-                    return true;
-                }
-                
+    private boolean processSWIandRESUME() {
+        int opCode = this.fetchedInstruction.getOpCode();
+        if(opCode == OpCodeTable.SWI) {
+            if(processSWI()) {
+                fetchedInstruction = null;
+                return true;
+            }
+        } else if(opCode == OpCodeTable.RESUME) {
+            if(processRESUME()) {
+                fetchedInstruction = null;
+                return true;
             }
         }
         return false;
+    }
+    
+    private boolean fetch() {
+        if(hasInterrupt()) {
+            processInterrupt();
+            return false;
+        } else {
+            if(null != fetchedInstruction) { 
+                return false;
+            }
+           
+            if(fetchInstruction()) {
+                int opCode = this.fetchedInstruction.getOpCode();
+                if(opCode == OpCodeTable.SWI | opCode == OpCodeTable.RESUME) {
+                    processSWIandRESUME();
+                    fetchedInstruction = null;
+                } else {
+                    return true;
+                }
+
+            }
+
+            return false;            
+        }
+        
+
     }
     
     private boolean fetchStageCheck() {
@@ -218,8 +179,19 @@ class Processor extends Component {
         return true;
     }
     
-   
     
+    private boolean fetchInstruction(){
+        this.mmu.readInstruction(this.programCounter);
+        if(this.mmu.getInstrReady()) {
+            //this.fetchedInstruction = this.mmu.getInstruction();
+            fetchedInstruction = new DecodedInstruction(
+                    this.mmu.getInstruction(), this.programCounter);
+            //System.out.println(Integer.toBinaryString(this.fetchedInstruction));
+
+            return true;
+        }
+        return false;
+    }
     
     private boolean decode(){
         if(null != decodedInstruction) return false;
@@ -229,7 +201,6 @@ class Processor extends Component {
         return true;
     }
 
-    
     private boolean execute() {
         //only when memory access has finished can execute continue
         //it prevents data not ready from load or SWAP
@@ -359,50 +330,37 @@ class Processor extends Component {
                 result.memoryRWbar = false;
                 result.memoryReadThenWrite = false;
                 result.memData = getRegExe(instr.getRegk());
+                //System.out.println(result.memData);
                 break;
             case OpCodeTable.SWAP:  //swap Mem[Rj+x] and Rk
                 result.memoryAccess = true;
                 result.memoryAddress = getRegExe(instr.getRegj())+instr.getImmediate();
                 result.memoryRWbar = false;
                 result.memoryReadThenWrite = true;
-                result.requireWriteBack = true;
                 result.memData = getRegExe(instr.getRegk());
                 setWrBkRegister(result, instr.getRegk(), 0);
                 break;
             case OpCodeTable.DISABLE: //Disable interrupts
                 //enableInterrupt(false);
-                regIntResult = getEnableInterruptResult(false);
-                setWrBkRegister(result, this.REG_INTERRUPT, regIntResult);
+                regIntResult = getEnableInterruptValue(getRegExe(REG_INTERRUPT), false);
+                setWrBkRegister(result, REG_INTERRUPT, regIntResult);
                 break;               
             case OpCodeTable.ENABLE://Enable interrupts
                 //enableInterrupt(true);
-                regIntResult = getEnableInterruptResult(true);
-                setWrBkRegister(result, this.REG_INTERRUPT, regIntResult);
+                regIntResult = getEnableInterruptValue(getRegExe(REG_INTERRUPT), true);
+                setWrBkRegister(result, REG_INTERRUPT, regIntResult);
                 break;    
             case OpCodeTable.SWI:   //ENABLE=0; LRI = PC; PC = 8
                                     //r8--r15 should be saved away.
                                     //Argument passed in r0
-                assert(false);
-                //enableInterrupt(false);
-                this.registers[this.REG_INTERRUPT] = getEnableInterruptResult(false);
-                setReg(REG_LRI, programCounter + 4);
-                programCounter = 8;
-                saveReg8_15();
-                //pcAdd4 = false;
+                assert(false);      //should process eariler
+                
                 break;
             case OpCodeTable.RESUME: //PC = LRI; ENABLE=1;
                                      //r8--r15 should be restored.
                                      //Result passed in r0
-                assert(false);
-                //enableInterrupt(true);
-                regIntResult = getEnableInterruptResult(true);
-                setWrBkRegister(result, this.REG_INTERRUPT, regIntResult);
-                //programCounter = getRegSafe(REG_LRI);
-                //RING~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                restoreReg8_15();
-                result.requireModifyPC = true;
-                result.newPC = getRegExe(REG_LRI);
-                //pcAdd4 = false;
+                assert(false);       //should process eariler
+                
                 break;
             case OpCodeTable.NOP:   //
                 break;
@@ -477,19 +435,6 @@ class Processor extends Component {
         //}
     }
 
-    private int temp[] = new int[8];
-    private void saveReg8_15() {
-        for(int i=0; i<8; ++i) {
-            temp[i] = getRegExe(8+i);
-        }
-    }
-
-    private void restoreReg8_15() {
-        for(int i=0; i<8; ++i) {
-            setReg(8+i, temp[i]);
-        }
-    }
-
     private boolean memoryAccess() {
         if(null != memAccessedInstruciton) return false;
         
@@ -503,17 +448,6 @@ class Processor extends Component {
         memAccessedInstruciton = executedInstruction;
                 executedInstruction = null;
         return true;
-    }
-
-    private boolean readMemory(ExecutedInstruction instr) 
-    {
-        mmu.readData(instr.memoryAddress);
-        if(this.mmu.getDataReady()) {
-            instr.regData = this.mmu.getData();
-            return true;
-        } else {
-            return false;
-        }
     }
     
     private boolean accessMemory() {
@@ -540,12 +474,35 @@ class Processor extends Component {
         
     }
 
+    private boolean readMemory(ExecutedInstruction instr) 
+    {
+        mmu.readData(instr.memoryAddress);
+        if(this.mmu.getDataReady()) {
+            instr.regData = this.mmu.getData();
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
     private boolean writeBack() {
         
         if(null != memAccessedInstruciton) {
+            if(this.memAccessedInstruciton.hasException) {
+                //don't have to worry about memory write
+                //because writeBack will operate before memory write
+                hasException = true;
+                exceptionAddress = this.memAccessedInstruciton.instrAddress();
+                this.memAccessedInstruciton = null;
+                this.executedInstruction = null;
+                this.decodedInstruction = null;
+                this.fetchedInstruction = null;
+                //this.programCounter = exceptionAddress;
+                return true;
+            }
             if(memAccessedInstruciton.requireWriteBack) {
 
-                setReg(memAccessedInstruciton.targetRegister, 
+                setRegRingChecked(memAccessedInstruciton.targetRegister, 
                         memAccessedInstruciton.regData);
             }
             
@@ -557,19 +514,154 @@ class Processor extends Component {
         return true;
     }
 
+    private boolean INTEnable(int regValue) {
+        //int reg = this.getRegExe(REG_INTERRUPT);
+        return ((regValue >> 31) != 0);
+    }
+    
+    private int getEnableInterruptValue(int regIntValue, boolean isEnable) {
+        if(isEnable) {
+            return regIntValue | 0x80000000;
+        } else {
+            return regIntValue & 0x7FFFFFFF;
+        }
+    }
+    
+    private void directEnableInterrupt(boolean isEnable) {
+        int reg = this.getReg(REG_INTERRUPT);
+        reg = getEnableInterruptValue(reg, isEnable);
+        setReg(REG_INTERRUPT, reg);
+    }
+    
+    private void directSetINTType(INTType type) {
+        int reg = this.getReg(REG_INTERRUPT);
+        reg = type.setINT(reg);
+        setReg(REG_INTERRUPT, reg);
+    }
 
+    private boolean hasInterrupt() {
+        if(!this.INTEnable(this.getReg(REG_INTERRUPT))) return false;
+        if(bus.isInterrupted) return true;
+        if(this.hasException) return true;
+        if(this.getReg(REG_TIMER) == 0) return true;
+        return false;
+    }
 
-    private boolean fetchInstruction(){
-        this.mmu.readInstruction(this.programCounter);
-        if(this.mmu.getInstrReady()) {
-            //this.fetchedInstruction = this.mmu.getInstruction();
-            fetchedInstruction = new DecodedInstruction(
-                    this.mmu.getInstruction(), this.programCounter);
-            //System.out.println(Integer.toBinaryString(this.fetchedInstruction));
-
-            return true;
+    private boolean canStartProcessInterrupt(boolean isSWInstr) {
+        
+        if(null == memAccessedInstruciton && 
+           null == executedInstruction &&
+           null == decodedInstruction) {
+            if(isSWInstr) {
+                return true;
+            } 
+            return (null == fetchedInstruction);
+        } else {
+            return false;
+        }
+    }
+    
+    private enum INTType {
+        Timer(1), Interconnect(2), SWI(4), PageFault(8);
+        
+        public int maskValue;
+        INTType(int mask) {
+            maskValue = mask;
+        }
+        
+        public int setINT(int orgValue) {
+            return orgValue | maskValue;
+        }
+        public int clearINT(int orgValue) {
+            return orgValue & (~maskValue);
+        }
+    }
+    
+    private static enum ISR {
+        HW(4), SW(8);
+        
+        public int Address;
+        ISR(int addr) {
+            Address = addr;
+        }
+    }
+    
+    private boolean processInterrupt() {
+        if(!canStartProcessInterrupt(false)) return false;
+        saveReg8_15();
+        directEnableInterrupt(false);
+        this.setReg(REG_RING, 0);
+        if(bus.isInterrupted) {                     
+            this.setReg(REG_LRI, programCounter);
+            programCounter = ISR.HW.Address;
+            this.directSetINTType(INTType.Interconnect);
+            //enableInterrupt(false);
+            //this.setReg(REG_INTERRUPT, getEnableInterruptResult(false));
+            
+        } else if(this.getReg(REG_TIMER) == 0) {    
+            this.setReg(REG_LRI, programCounter);
+            programCounter = ISR.HW.Address;
+            this.directSetINTType(INTType.Timer);
+        }  else if(this.hasException) {         
+            programCounter = this.exceptionAddress;
+            this.setReg(REG_LRI, programCounter);
+            programCounter = ISR.SW.Address;
+            this.directSetINTType(INTType.PageFault);
+        } else {
+            assert(false);
         }
         return false;
+        
+    }
+    
+    //ENABLE=0; LRI = PC; PC = 8
+    //r8--r15 should be saved away.
+    //Argument passed in r0
+    private boolean processSWI() {
+        if(!canStartProcessInterrupt(true)) return false;
+        //this.setRegRingChecked(REG_INTERRUPT, getEnableInterruptResult(false));
+        directEnableInterrupt(false);
+        this.setReg(REG_RING, 0);
+        setReg(REG_LRI, programCounter);
+        programCounter = ISR.SW.Address;
+        saveReg8_15();
+        return true;
+
+    }
+
+    //PC = LRI; ENABLE=1;
+    //r8--r15 should be restored.
+    //Result passed in r0
+    private boolean processRESUME() {
+        if(!canStartProcessInterrupt(true)) return false;
+        
+        //this.setRegRingChecked(REG_INTERRUPT, getEnableInterruptResult(true));
+        directEnableInterrupt(true);
+        bus.isInterrupted = false;
+        restoreReg8_15();
+        this.setReg(REG_RING, 3);
+        programCounter = getReg(REG_LRI);
+        return true;
+    }
+
+    
+    private int temp[] = new int[8];
+    private void saveReg8_15() {
+        for(int i=0; i<8; ++i) {
+            temp[i] = getRegExe(8+i);
+        }
+    }
+
+    private void restoreReg8_15() {
+        for(int i=0; i<8; ++i) {
+            setRegRingChecked(8+i, temp[i]);
+        }
+    }
+
+    void attachInterconnect(Interconnect connection) {
+            // TODO Auto-generated method stub
+            bus = connection;
+            mmu.attachInterconnect(connection);
     }
 
 
@@ -588,6 +680,12 @@ class Processor extends Component {
         return registers[regNumber];
     }
     
+   
+    
+    public void setRegRingChecked(int regNumber, int value) {
+        registers[regNumber] = value;
+    }
+    
     public void setReg(int regNumber, int value) {
         registers[regNumber] = value;
     }
@@ -597,19 +695,17 @@ class Processor extends Component {
         return registers[regNumber];
     }
 
-
-
     //only for debugging
     public int getRing() {
-        return registers[REG_RING];
+        return getReg(REG_RING);
     }
 
-    public void setRing(int ringLevel) {
-            registers[REG_RING] = ringLevel;
+    public void setRing(int ringLevel) {            
+        setReg(REG_RING, ringLevel);
     }
 
     public void setPC(int address) {
-            this.programCounter = address;
+        this.programCounter = address;
     }
 
     public void executeOpcode(int instruction) {

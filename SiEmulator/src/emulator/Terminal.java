@@ -12,14 +12,22 @@ class Terminal extends Component{
         private int bufferSize = 1;
         
         public void run() {
-            
+            int count;
             while(this.isEnable) {
+                
                 try {
-                    if(0 != System.in.available()) {
-                        int input = System.in.read();
-                        addToBuffer(input);
-                        if(!newline.equals((char)input))
-                            input = System.in.read();
+                    count = System.in.available();
+                    if(0 != count) {
+                        byte data[] = new byte[count];
+                        count = System.in.read(data);
+                        System.out.println(count);
+                        for(int i=0; i<count; ++i) {
+                            //int input = System.in.read();
+                            addToBuffer(data[i]);
+                        }
+                        
+                        //if(!newline.equals((char)input))
+                        //    input = System.in.read();
                         
                     }
                     
@@ -82,7 +90,7 @@ class Terminal extends Component{
             readThread = new Terminal.ReadThread();
             readThread.enable(true);
             readThread.setBufferSize(32);
-            //readThread.start();
+            readThread.start();
     }
     
     @Override
@@ -98,12 +106,15 @@ class Terminal extends Component{
         this.bus = connection;
     }
 
+    int temp=0;
     @Override
     void advanceTime() {
         //when READ_NEXT_DATA == true
         //remove current dataIn register content, 
         //input not empty --> false
-        
+        //System.out.print(".");
+        temp=(temp+1)%3;
+        if(temp !=0) return;
         
         assert(bus != null);
         int offset = bus.address-this.baseAddr;
@@ -111,8 +122,16 @@ class Terminal extends Component{
             if(bus.rwbar) {
                 bus.data = this.registers[offset/4];
             } else {
-                this.registers[offset/4] = bus.data;
+                int temp = bus.data;
+                boolean b0 = this.getControlRegBit(MSK_OUT_BUFFER_FULL);
+                boolean b1 = this.getControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
+                this.registers[offset/4] = temp;
                 if(offset/4 == controlReg) {
+                    if(b0) this.setControlRegBit(MSK_OUT_BUFFER_FULL);
+                    else   this.resetControlRegBit(MSK_OUT_BUFFER_FULL);
+                    
+                    if(b1) this.setControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
+                    else   this.resetControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
                     execute();
                 }
             }
@@ -182,12 +201,7 @@ class Terminal extends Component{
     }
 
     
-    private void prepareReadNextData() {
-        //clear READ_NEXT_DATA so it won't redo this function again
-        resetControlRegBit(MSK_READ_NEXT_DATA);
-        resetControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
-        
-    }
+
     
     private void inputDataFromTerminal() {
         if(!this.getControlRegBit(this.MSK_IN_BUFFER_NOT_EMPTY)) {
@@ -195,16 +209,14 @@ class Terminal extends Component{
                 int data = readThread.readBuffer();
                 this.registers[inDataReg] = data;
                 this.setControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
-                this.bus.isInterrupted = true;
+                
             }
+        }
+        if(this.getControlRegBit(this.MSK_IN_BUFFER_NOT_EMPTY)) {
+            this.bus.isInterrupted = true;
         }
     }
 
-    private boolean requireReadNextData() {
-        
-        return getControlRegBit(MSK_READ_NEXT_DATA);
-       
-    }
    
     
     private static class OutputData {
@@ -246,6 +258,7 @@ class Terminal extends Component{
     
     private void outputDataFromBuffer() {
         if(outputBuffer.size() != 0) {
+            
             outputDataToTerminal(outputBuffer.get(0));
             outputBuffer.remove(0);
         }
@@ -263,13 +276,20 @@ class Terminal extends Component{
         }
     }
 
+    private void prepareReadNextData() {
+        //clear READ_NEXT_DATA so it won't redo this function again
+        resetControlRegBit(MSK_READ_NEXT_DATA);
+        resetControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
+        
+    }
+    
     private void execute(){
-
+       
         if(requireWriteData()) {
             writeData();
             //return;
         }
-        if(requireReadNextData()) {
+        if(getControlRegBit(MSK_READ_NEXT_DATA)) {
             prepareReadNextData();
             //return;
         }
