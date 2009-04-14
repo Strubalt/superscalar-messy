@@ -108,18 +108,18 @@ class Processor extends Component {
 
     @Override
     void advanceTime() {
-        this.advanceTime_Basic();
-        //this.advanceTimePipeline();
+        //this.advanceTime_Basic();
+        this.advanceTimePipeline();
     }
     
     private boolean INTEnable() {
-        int reg = this.getRegSafe(REG_INTERRUPT);
+        int reg = this.getRegExe(REG_INTERRUPT);
         return ((reg >> 31) != 0);
     }
     
     
     private int getEnableInterruptResult(boolean isEnable) {
-        int reg = this.getRegSafe(REG_INTERRUPT);
+        int reg = this.getRegExe(REG_INTERRUPT);
         if(isEnable) {
             reg = reg | 0x80000000;
         } else {
@@ -128,7 +128,7 @@ class Processor extends Component {
         return reg;
     }
 
-    private boolean hasInterrupt() {
+    private boolean hasHWInterrupt() {
         if(!this.INTEnable()) return false;
         if(bus.isInterrupted) return true;
         return false;
@@ -145,23 +145,64 @@ class Processor extends Component {
             return false;
     }
     
-    private void processHWI() {
-        if(!canStartProcessInterrupt()) return;
+    private boolean processHWI() {
+        if(!canStartProcessInterrupt()) return false;
         
         this.setReg(REG_LRI, programCounter);
         programCounter = 4;
         //enableInterrupt(false);
         this.registers[this.REG_INTERRUPT] = getEnableInterruptResult(false);
+        return true;
+    }
+    
+    private boolean processSWI()
+    {
+        if(!canStartProcessInterrupt()) return false;
+        this.registers[this.REG_INTERRUPT] = getEnableInterruptResult(false);
+        setReg(REG_LRI, programCounter + 4);
+        programCounter = 8;
+        saveReg8_15();
+        return true;
+    }
+    
+    
+    
+    private boolean processRESUME()
+    {
+        if(!canStartProcessInterrupt()) return false;
+        
+        this.setReg(this.REG_INTERRUPT, getEnableInterruptResult(true));
+        //regIntResult = getEnableInterruptResult(true);
+        //setWrBkRegister(result, this.REG_INTERRUPT, regIntResult);
+        restoreReg8_15();
+        this.setReg(this.REG_RING, 3);
+        programCounter = getReg(REG_LRI);
+        return true;
     }
 
     private boolean fetch() {
-        if(hasInterrupt()) {
-            processHWI();
-        } else {
+        if(hasHWInterrupt()) {
+            return processHWI();
+            
+        }else {
             if(null != fetchedInstruction) return false;
             if(!fetchStageCheck()) return false;
             if(fetchInstruction()) {
-                return true;
+                int opCode = this.fetchedInstruction.getOpCode();
+                if(opCode == OpCodeTable.SWI) {
+                    if(processSWI()) {
+                        fetchedInstruction = null;
+                        return true;
+                    }
+                } else if(opCode == OpCodeTable.RESUME) {
+                    if(processRESUME()) {
+                        fetchedInstruction = null;
+                        return true;
+                    }
+                } else {
+                    return true;
+                }
+                
             }
         }
         return false;
@@ -188,7 +229,10 @@ class Processor extends Component {
         return true;
     }
 
+    
     private boolean execute() {
+        //only when memory access has finished can execute continue
+        //it prevents data not ready from load or SWAP
         if(null != executedInstruction) return false;
         
         if(null != decodedInstruction) {
@@ -213,84 +257,84 @@ class Processor extends Component {
         switch(instr.getOpCode()){
             case OpCodeTable.ADD:   //Ri = Rj + Rk
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj())+getRegSafe(instr.getRegk()));
+                    getRegExe(instr.getRegj())+getRegExe(instr.getRegk()));
                 break;
             case OpCodeTable.AND:   //Ri = Rj & Rk
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj()) & getRegSafe(instr.getRegk()));
+                    getRegExe(instr.getRegj()) & getRegExe(instr.getRegk()));
                 break;
             case OpCodeTable.DIV:   //Ri = Rj / Rk
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj()) / getRegSafe(instr.getRegk()));
+                    getRegExe(instr.getRegj()) / getRegExe(instr.getRegk()));
                 break;    
             case OpCodeTable.MUL:   //Ri = Rj * Rk
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj()) * getRegSafe(instr.getRegk()));                    
+                    getRegExe(instr.getRegj()) * getRegExe(instr.getRegk()));                    
                 break;
 
             case OpCodeTable.NAND:  //Ri = ~( Rj & Rk )
                 setWrBkRegister(result, instr.getRegi(), 
-                    ~(getRegSafe(instr.getRegj()) & getRegSafe(instr.getRegk())));
+                    ~(getRegExe(instr.getRegj()) & getRegExe(instr.getRegk())));
                 break;
             case OpCodeTable.NXOR:  //Ri = ~( Rj ^ Rk )
                 setWrBkRegister(result, instr.getRegi(), 
-                    ~(getRegSafe(instr.getRegj()) ^ getRegSafe(instr.getRegk())));
+                    ~(getRegExe(instr.getRegj()) ^ getRegExe(instr.getRegk())));
                 break;
             case OpCodeTable.NOR:   //Ri = ~( Rj | Rk )
                 setWrBkRegister(result, instr.getRegi(), 
-                    ~(getRegSafe(instr.getRegj()) | getRegSafe(instr.getRegk())));
+                    ~(getRegExe(instr.getRegj()) | getRegExe(instr.getRegk())));
                 break;
             case OpCodeTable.OR:    //Ri = Rj | Rk
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj()) | getRegSafe(instr.getRegk()));
+                    getRegExe(instr.getRegj()) | getRegExe(instr.getRegk()));
                 break;
             case OpCodeTable.XOR:   //Ri = Rj ^ Rk
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj()) ^ getRegSafe(instr.getRegk()));
+                    getRegExe(instr.getRegj()) ^ getRegExe(instr.getRegk()));
                 break;
             case OpCodeTable.SUB:   //Ri = Rj - Rk
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj()) - getRegSafe(instr.getRegk()));
+                    getRegExe(instr.getRegj()) - getRegExe(instr.getRegk()));
                 break;
             case OpCodeTable.SUBI:  //Ri = Rj - x
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj())-instr.getImmediate());
+                    getRegExe(instr.getRegj())-instr.getImmediate());
                 break;
             case OpCodeTable.ADDI:  //Ri = Rj + x
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj())+instr.getImmediate());
+                    getRegExe(instr.getRegj())+instr.getImmediate());
                 break;
             case OpCodeTable.ANDI:  //Ri = Rj & x
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj())&instr.getImmediate());
+                    getRegExe(instr.getRegj())&instr.getImmediate());
                 break;
             case OpCodeTable.DIVI:  //Ri = Rj / x
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj())/instr.getImmediate());
+                    getRegExe(instr.getRegj())/instr.getImmediate());
                 break;
             case OpCodeTable.MULI:  //Ri = Rj * x
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj())*instr.getImmediate());
+                    getRegExe(instr.getRegj())*instr.getImmediate());
                 break;
             case OpCodeTable.NXORI: //Ri = ~( Rj ^ x )
                 setWrBkRegister(result, instr.getRegi(), 
-                    ~(getRegSafe(instr.getRegj()) ^ instr.getImmediate()));
+                    ~(getRegExe(instr.getRegj()) ^ instr.getImmediate()));
                 break;
             case OpCodeTable.NANDI: //Ri = ~( Rj & x )
                 setWrBkRegister(result, instr.getRegi(), 
-                    ~(getRegSafe(instr.getRegj()) & instr.getImmediate()));
+                    ~(getRegExe(instr.getRegj()) & instr.getImmediate()));
                 break;
             case OpCodeTable.XORI:  //Ri = Rj ^ x
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj())^instr.getImmediate());
+                    getRegExe(instr.getRegj())^instr.getImmediate());
                 break;
             case OpCodeTable.ORI:   //Ri = Rj | x
                 setWrBkRegister(result, instr.getRegi(), 
-                    getRegSafe(instr.getRegj())|instr.getImmediate());
+                    getRegExe(instr.getRegj())|instr.getImmediate());
                 break;
             case OpCodeTable.NORI:  //Ri = ~( Rj | x )
                 setWrBkRegister(result, instr.getRegi(), 
-                    ~(getRegSafe(instr.getRegj()) | instr.getImmediate()));
+                    ~(getRegExe(instr.getRegj()) | instr.getImmediate()));
                 break;
             case OpCodeTable.MOVI:  //Rj = immediate
                 setWrBkRegister(result, instr.getRegj(), instr.getImmediate());
@@ -303,7 +347,7 @@ class Processor extends Component {
                 break;
             case OpCodeTable.LOAD:  //Ri=Mem[Rj+x]
                 
-                result.memoryAddress = getRegSafe(instr.getRegj())+instr.getImmediate();
+                result.memoryAddress = getRegExe(instr.getRegj())+instr.getImmediate();
                 result.memoryRWbar = true;
                 result.memoryReadThenWrite = false;
                 result.memoryAccess = true;
@@ -311,18 +355,18 @@ class Processor extends Component {
                 break;
             case OpCodeTable.STORE: //Mem[Rj+x]=Rk
                 result.memoryAccess = true;
-                result.memoryAddress = getRegSafe(instr.getRegj())+instr.getImmediate();
+                result.memoryAddress = getRegExe(instr.getRegj())+instr.getImmediate();
                 result.memoryRWbar = false;
                 result.memoryReadThenWrite = false;
-                result.memData = getRegSafe(instr.getRegk());
+                result.memData = getRegExe(instr.getRegk());
                 break;
             case OpCodeTable.SWAP:  //swap Mem[Rj+x] and Rk
                 result.memoryAccess = true;
-                result.memoryAddress = getRegSafe(instr.getRegj())+instr.getImmediate();
+                result.memoryAddress = getRegExe(instr.getRegj())+instr.getImmediate();
                 result.memoryRWbar = false;
                 result.memoryReadThenWrite = true;
                 result.requireWriteBack = true;
-                result.memData = getRegSafe(instr.getRegk());
+                result.memData = getRegExe(instr.getRegk());
                 setWrBkRegister(result, instr.getRegk(), 0);
                 break;
             case OpCodeTable.DISABLE: //Disable interrupts
@@ -357,18 +401,18 @@ class Processor extends Component {
                 //RING~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 restoreReg8_15();
                 result.requireModifyPC = true;
-                result.newPC = getRegSafe(REG_LRI);
+                result.newPC = getRegExe(REG_LRI);
                 //pcAdd4 = false;
                 break;
             case OpCodeTable.NOP:   //
                 break;
             case OpCodeTable.B:     //PC = Rj
                 result.requireModifyPC = true;
-                result.newPC = getRegSafe(instr.getRegj());
+                result.newPC = getRegExe(instr.getRegj());
                 //pcAdd4=false;
                 break;
             case OpCodeTable.BEQZ:  //IF Rj=0  THEN PC=PC+x
-                if(getRegSafe(instr.getRegj()) == 0) {
+                if(getRegExe(instr.getRegj()) == 0) {
                     result.requireModifyPC = true;
                     result.newPC = instr.instructionAddress + instr.getImmediate();
                     //pc += instr.getImmediate();
@@ -376,21 +420,21 @@ class Processor extends Component {
                 }
                 break;
             case OpCodeTable.BNEZ:  //IF Rj!=0 THEN PC=PC+x
-                if(getRegSafe(instr.getRegj()) != 0) {
+                if(getRegExe(instr.getRegj()) != 0) {
                     result.requireModifyPC = true;
                     result.newPC = instr.instructionAddress + instr.getImmediate();
                     //pcAdd4=false;
                 }
                 break;
             case OpCodeTable.BGEZ:  //IF Rj>=0 THEN PC=PC+x
-                if(getRegSafe(instr.getRegj()) >= 0) {
+                if(getRegExe(instr.getRegj()) >= 0) {
                     result.requireModifyPC = true;
                     result.newPC = instr.instructionAddress + instr.getImmediate();
                     //pcAdd4=false;
                 }
                 break;
             case OpCodeTable.BLTZ:  //IF Rj<0  THEN PC=PC+x
-                if(getRegSafe(instr.getRegj()) < 0) {
+                if(getRegExe(instr.getRegj()) < 0) {
                     result.requireModifyPC = true;
                     result.newPC = instr.instructionAddress + instr.getImmediate();
                     //pcAdd4=false;
@@ -416,14 +460,14 @@ class Processor extends Component {
                 //check-----------------------------------------------
                 setWrBkRegister(result, REG_LR, instr.instructionAddress+4);
                 result.requireModifyPC = true;
-                result.newPC = getRegSafe(instr.getRegj());
+                result.newPC = getRegExe(instr.getRegj());
                 //pc = getRegSafe(instr.getRegj());
                 //pcAdd4 = false;
                 break;
             case OpCodeTable.RETURN: //PC = LR
                 
                 result.requireModifyPC = true;
-                result.newPC = getRegSafe(REG_LR);
+                result.newPC = getRegExe(REG_LR);
                 //pc = getRegSafe(REG_LR);
                 //pcAdd4 = false;
                 break;
@@ -436,7 +480,7 @@ class Processor extends Component {
     private int temp[] = new int[8];
     private void saveReg8_15() {
         for(int i=0; i<8; ++i) {
-            temp[i] = getRegSafe(8+i);
+            temp[i] = getRegExe(8+i);
         }
     }
 
@@ -533,8 +577,8 @@ class Processor extends Component {
         return this.isHalt;
     }
 
-    private int getRegSafe(int regNumber) {
-        //suppose executedInstruction is null for superscalar
+    private int getRegExe(int regNumber) {
+        //executedInstruction should be ready so it can execute
         if(null != this.memAccessedInstruciton && 
                 this.memAccessedInstruciton.requireWriteBack &&
                 this.memAccessedInstruciton.targetRegister == regNumber) {
