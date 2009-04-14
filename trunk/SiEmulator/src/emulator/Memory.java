@@ -19,8 +19,11 @@ public class Memory extends Component {
 		}
 	}
 
+        int temp=0;
 	@Override
 	void advanceTime() {
+            temp=(temp+1)%10;
+            if(temp != 0) return;
             assert(bus != null);
             if(!bus.ready && bus.en && bus.address >= this.base_address && 
                     bus.address < this.base_address + this.data.length * 4) {
