@@ -43,14 +43,14 @@ public class DecodedInstruction {
         immediate = decodeImmediate(instruction, opType);
     }
     
+    //not include SWI and RESUME
     public boolean isBranch() {
         switch(opType) {
             case OpCodeTable.B: case OpCodeTable.BEQZ:
             case OpCodeTable.BGEZ: case OpCodeTable.BL:
             case OpCodeTable.BNEZ: case OpCodeTable.BLTZ:
             case OpCodeTable.BLR: case OpCodeTable.BR:
-            case OpCodeTable.RETURN: case OpCodeTable.RESUME:
-            case OpCodeTable.SWI:
+            case OpCodeTable.RETURN: 
                 return true;
             default:
                 return false;
