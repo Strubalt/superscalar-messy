@@ -1,4 +1,11 @@
-
+if [ -f ../SiAssembler/bin/AsmMain.class ]; then
+  echo ""
+elif [ -f ../SiAssembler/src/AsmMain.java ]; then
+  echo "Compiling...."
+  ant -f ../SiAssembler/build.xml
+else
+  echo "Files not found."
+fi
 
 if [ -f ../SiAssembler/bin/AsmMain.class ]; then
   java -cp ../SiAssembler/bin AsmMain $1 $2
