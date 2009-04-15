@@ -20,7 +20,7 @@ class Terminal extends Component{
                     if(0 != count) {
                         byte data[] = new byte[count];
                         count = System.in.read(data);
-                        System.out.println(count);
+                        
                         for(int i=0; i<count; ++i) {
                             //int input = System.in.read();
                             addToBuffer(data[i]);
