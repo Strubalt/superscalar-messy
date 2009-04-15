@@ -239,7 +239,9 @@ public class InstrEncoder {
 		
 		try {
 			int temp;
-			temp = Integer.decode(imm).intValue();
+                        
+			String tempImm = imm.replace('X', 'x');
+			temp = Integer.decode(tempImm).intValue();
 			return temp;
 		} catch(NumberFormatException e) {
 			
