@@ -589,7 +589,7 @@ class Processor extends Component {
     
     private boolean processInterrupt() {
         if(!canStartProcessInterrupt(false)) return false;
-        saveReg8_15();
+        //saveReg8_15();
         directEnableInterrupt(false);
         this.setReg(REG_RING, 0);
         if(bus.isInterrupted) {                     
@@ -626,7 +626,7 @@ class Processor extends Component {
         this.setReg(REG_RING, 0);
         setReg(REG_LRI, programCounter);
         programCounter = ISR.SW.Address;
-        saveReg8_15();
+        //saveReg8_15();
         return true;
 
     }
@@ -640,13 +640,13 @@ class Processor extends Component {
         //this.setRegRingChecked(REG_INTERRUPT, getEnableInterruptResult(true));
         directEnableInterrupt(true);
         bus.isInterrupted = false;
-        restoreReg8_15();
+        //restoreReg8_15();
         this.setReg(REG_RING, 3);
         programCounter = getReg(REG_LRI);
         return true;
     }
 
-    
+    /*
     private int temp[] = new int[8];
     private void saveReg8_15() {
         for(int i=0; i<8; ++i) {
@@ -659,7 +659,8 @@ class Processor extends Component {
             setRegRingChecked(8+i, temp[i]);
         }
     }
-
+    */
+    
     void attachInterconnect(Interconnect connection) {
             // TODO Auto-generated method stub
             bus = connection;

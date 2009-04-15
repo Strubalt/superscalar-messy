@@ -26,7 +26,7 @@ public class Emulator {
             }
             
             run(inFile, isPipeline);
-            
+            //testPrimeNumber();
             
             //testOnly();
             
@@ -46,6 +46,40 @@ public class Emulator {
             //System.out.print(Integer.toHexString(0x80000000 >> (32-11-2)));
                 
 	}
+        
+        
+        
+        private static int isPrime(int num) {
+            int i=2;
+            int q;
+            while(i*i <= num) {
+                q = num / i;
+                q = q*i;
+                q = num-q;
+                if(q==0) return 0;
+                i+=1;
+                
+            }
+
+    
+            return 1;
+        }
+        
+        private static void testPrimeNumber() {
+            int numToFind = 9;
+            int currentPrime = 2;
+            int num = 3;
+            
+            System.out.print(2 + ",");
+            while(numToFind != 0) {
+                
+                if(isPrime(num) != 0) {
+                    System.out.print(num + ",");
+                    numToFind-=1;
+                }
+                num+=1;
+            }
+        }
         
         private static void testOnly() {
             Terminal.ReadThread th = new Terminal.ReadThread();
