@@ -113,7 +113,9 @@ class Terminal extends Component{
         //remove current dataIn register content, 
         //input not empty --> false
         //System.out.print(".");
-        temp=(temp+1)%3;
+        
+        
+        temp=(temp+1)%40;
         if(temp !=0) return;
         
         assert(bus != null);

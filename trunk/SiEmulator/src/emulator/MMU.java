@@ -26,7 +26,7 @@ public class MMU {
 	
     
     public MMU() {
-        instrCache = new Cache(16,1);
+        instrCache = new Cache(32,4);
        
     }
     
@@ -103,7 +103,14 @@ public class MMU {
         }
     }
     
+    public boolean canWriteData() {
+        if(bus.en && !bus.ready && !bus.rwbar)
+            return false;
+        return true;
+    }
+    
     public void writeData(int dataAddr, int data) {
+        
         this.dataAddr = dataAddr;
         this.data = data;
         this.isInstr = false;

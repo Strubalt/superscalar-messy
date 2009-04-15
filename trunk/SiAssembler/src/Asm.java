@@ -206,7 +206,7 @@ public class Asm {
 		try{
 			inChar = inStream.read();
 			while(inChar != -1) {
-				if(inChar == '\n' || inChar == '\r'){
+				if(inChar == '\n' | inChar == '\r'){
 					break;
 				}
 				inChar = inStream.read();

@@ -466,6 +466,7 @@ class Processor extends Component {
             if(executedInstruction.memoryRWbar) {
                 return readMemory(executedInstruction);
             } else {
+                if(!mmu.canWriteData()) return false;
                 mmu.writeData(executedInstruction.memoryAddress, 
                               executedInstruction.memData);  
                 return true;
@@ -601,6 +602,7 @@ class Processor extends Component {
         } else if(this.getReg(REG_TIMER) == 0) {    
             this.setReg(REG_LRI, programCounter);
             programCounter = ISR.HW.Address;
+            this.setReg(REG_TIMER, -1);
             this.directSetINTType(INTType.Timer);
         }  else if(this.hasException) {         
             programCounter = this.exceptionAddress;
