@@ -63,12 +63,12 @@ class Processor extends Component {
     
     void advanceTimeBasic() {
         //cycle+=1;
-        
+        advanceCycle();
         switch(stage) {
             case STG_FETCH:
                 
                 if(fetch()) {
-                    advanceCycle();
+                    
                     stage += 1;
                 }
                 break;
@@ -80,12 +80,13 @@ class Processor extends Component {
             case STG_EXECUTE:
                 if(execute()) {
                     stage += 1;
+                    if(executedInstruction.requireModifyPC)
+                        programCounter = executedInstruction.newPC;
+                    else
+                        programCounter += 4;
+                    
                 }
                 
-                if(executedInstruction.requireModifyPC)
-                    programCounter = executedInstruction.newPC;
-                else
-                    programCounter += 4;
                 break;
             case STG_MEM:
                 if(memoryAccess()) {
@@ -207,6 +208,10 @@ class Processor extends Component {
         if(null != executedInstruction) return false;
         
         if(null != decodedInstruction) {
+            if(decodedInstruction.numCycleToFinish > 1) {
+                decodedInstruction.numCycleToFinish -= 1;
+                return false;
+            }
             executedInstruction = new ExecutedInstruction(decodedInstruction);
             execute(decodedInstruction, executedInstruction);
             decodedInstruction = null;
@@ -641,7 +646,7 @@ class Processor extends Component {
         directEnableInterrupt(true);
         bus.isInterrupted = false;
         //restoreReg8_15();
-        this.setReg(REG_RING, 3);
+        //this.setReg(REG_RING, 3);
         programCounter = getReg(REG_LRI);
         return true;
     }

@@ -89,7 +89,8 @@ class Terminal extends Component{
             registers = new int[3];
             readThread = new Terminal.ReadThread();
             readThread.enable(true);
-            readThread.setBufferSize(32);
+            readThread.setBufferSize(Config.TermBufferSize);
+            this.outputBufferSize = Config.TermBufferSize;
             readThread.start();
     }
     
@@ -106,7 +107,7 @@ class Terminal extends Component{
         this.bus = connection;
     }
 
-    int temp=0;
+    
     @Override
     void advanceTime() {
         //when READ_NEXT_DATA == true
@@ -114,10 +115,7 @@ class Terminal extends Component{
         //input not empty --> false
         //System.out.print(".");
         
-        
-        temp=(temp+1)%40;
-        if(temp !=0) return;
-        
+       
         assert(bus != null);
         int offset = bus.address-this.baseAddr;
         if(!bus.ready && bus.en && offset>=0 && offset<=8) {
@@ -141,6 +139,7 @@ class Terminal extends Component{
         }
         //if there is data from input and InRegisterNotEmpty == false
         //move data to InRegister
+        outputDataFromBuffer();
         inputDataFromTerminal();
     }
     
@@ -203,15 +202,24 @@ class Terminal extends Component{
     }
 
     
-
     
+    private int inputDelay=0;
     private void inputDataFromTerminal() {
         if(!this.getControlRegBit(this.MSK_IN_BUFFER_NOT_EMPTY)) {
             if(!readThread.isEmpty()) {
-                int data = readThread.readBuffer();
-                this.registers[inDataReg] = data;
-                this.setControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
+                if(inputDelay == 0) {
+                    int data = readThread.readBuffer();
+                    this.registers[inDataReg] = data;
+                    this.setControlRegBit(MSK_IN_BUFFER_NOT_EMPTY);
+                    inputDelay = Config.TermDelayAvg;
+                } else {
+                    if(Config.TermShowInDelay) System.out.print(".");
+                    inputDelay -= 1;
+                }
                 
+                
+            } else {
+                inputDelay = Config.TermDelayAvg;
             }
         }
         if(this.getControlRegBit(this.MSK_IN_BUFFER_NOT_EMPTY)) {
@@ -232,19 +240,7 @@ class Terminal extends Component{
     
     public ArrayList<OutputData> outputBuffer = new ArrayList<OutputData>();
     
-    private void writeData() {
-        /* 
-        if(outputFormat() == FORMAT_INT) {
-            System.out.print(this.registers[outDataReg]);
-        } else {
-            System.out.print((char)this.registers[outDataReg]);
-        }
-         */
-        
-        storeOutDataToBuffer();
-        outputDataFromBuffer();
-        
-    }
+   
     
     private void storeOutDataToBuffer() {
         if(!this.getControlRegBit(this.MSK_OUT_BUFFER_FULL)) {
@@ -258,14 +254,24 @@ class Terminal extends Component{
         }
     }
     
+    private int outputDelay=0;
     private void outputDataFromBuffer() {
         if(outputBuffer.size() != 0) {
+            if(outputDelay == 0) {
+                outputDataToTerminal(outputBuffer.get(0));
+                outputBuffer.remove(0);
+                this.resetControlRegBit(MSK_OUT_BUFFER_FULL);
+                outputDelay = Config.TermDelayAvg;
+            } else {
+                outputDelay -= 1;
+                if(Config.TermShowOutDelay) System.out.print("-");
+            }
             
-            outputDataToTerminal(outputBuffer.get(0));
-            outputBuffer.remove(0);
+        } else {
+            outputDelay = Config.TermDelayAvg;
         }
         //output buffer no longer full
-        this.resetControlRegBit(MSK_OUT_BUFFER_FULL);
+        
     }
     
     
@@ -288,7 +294,8 @@ class Terminal extends Component{
     private void execute(){
        
         if(requireWriteData()) {
-            writeData();
+            storeOutDataToBuffer();
+        
             //return;
         }
         if(getControlRegBit(MSK_READ_NEXT_DATA)) {

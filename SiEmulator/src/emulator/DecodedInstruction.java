@@ -21,6 +21,7 @@ public class DecodedInstruction {
     private int immediate;
     
     public int instructionAddress;
+    public int numCycleToFinish = 1;
     public int getOpType() { return this.opType; }
     public int getOpCode() { return this.opCode; }
     public int getRegi() { return regi; }
@@ -41,7 +42,24 @@ public class DecodedInstruction {
         regi = (instruction >> 14) & 0x3F;
         regk = (instruction >> 8) & 0x3F;
         immediate = decodeImmediate(instruction, opType);
+        setNumCycleFinish();
     }
+    
+    private void setNumCycleFinish() {
+        switch(opType) {
+            case OpCodeTable.DIV: case OpCodeTable.DIVI:
+                numCycleToFinish = Config.numDIVCycle;
+                break;
+            case OpCodeTable.MUL: case OpCodeTable.MULI:
+                numCycleToFinish = Config.numMulCycle;
+                break;
+            
+            default:
+                numCycleToFinish = Config.numBasicCycle;
+                break;
+        }
+    }
+    
     
     //not include SWI and RESUME
     public boolean isBranch() {

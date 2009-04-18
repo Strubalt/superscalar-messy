@@ -26,7 +26,7 @@ public class MMU {
 	
     
     public MMU() {
-        instrCache = new Cache(32,4);
+        instrCache = new Cache(Config.cacheNumSet, Config.cacheNumWay);
        
     }
     

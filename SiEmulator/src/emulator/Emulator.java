@@ -5,7 +5,7 @@ import java.lang.*;
 
 public class Emulator {
     
-    
+        static final String configFilename = "emu.config";
      
 	/**
 	 * @param args
@@ -24,8 +24,8 @@ public class Emulator {
                 isPipeline = true;
                 inFile = args[1];
             }
-            
-            run(inFile, isPipeline);
+            Config.Load(configFilename);
+            run(inFile, Config.pipeline);
             //testPrimeNumber();
             
             //testOnly();
@@ -125,10 +125,10 @@ public class Emulator {
         ArrayList<Component> components = new ArrayList<Component>();
         
         public Emulator(int initialMem[], boolean isPipeline) {
-            int terminalBaseAddr = 0xf00;
+            //int terminalBaseAddr = 0xf00;
             
-            this.memory = new Memory(900, 0, initialMem);
-            terminal = new Terminal(1, terminalBaseAddr, 1);
+            this.memory = new Memory(Config.MemorySizeWord, 0, initialMem);
+            terminal = new Terminal(1, Config.TermBaseAddr, 1);
             processor = new Processor(isPipeline);
 
             bus = new WireInterconnect(2, 
@@ -146,11 +146,15 @@ public class Emulator {
             advanceTime(this.processor, this.components);
         }
         
+        private int ExCLKFactor=0;
         private void advanceTime(Processor processor, ArrayList<Component> components) {
-            
-            for(Component component: components) {
-                component.advanceTime();
+            ExCLKFactor = (ExCLKFactor+1)%Config.ExCLK;
+            if(ExCLKFactor == 0) {
+                for(Component component: components) {
+                    component.advanceTime();
+                }
             }
+            
             processor.advanceTime();
         }
         
