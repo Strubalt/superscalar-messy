@@ -78,10 +78,17 @@ public class Asm {
 		byte data[];
 		InstrEncoder encoder = new InstrEncoder();
 		for(int i=0; i < instrs.size(); ++i) {
-			data = encoder.encode((Instruction)instrs.get(i), i, symbolTable, constTable);
+                    try{
+                        data = encoder.encode((Instruction)instrs.get(i), i, symbolTable, constTable);
 			for(int idx=0; idx<data.length; ++idx){
 				result[i*4+idx] = data[idx];
 			}
+                    }catch (Exception e) {
+                        
+                        System.out.println("Error: " +instrs.get(i).toString());
+                        break;
+                    }
+			
 /*
 			String addr = Integer.toHexString(4*i);
 			

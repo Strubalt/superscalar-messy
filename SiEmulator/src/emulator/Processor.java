@@ -31,6 +31,7 @@ class Processor extends Component {
     private boolean isHalt; //need to make sure all instructions have finished
     private boolean hasException;
     private int exceptionAddress;
+    private INTType exceptionType;
     private MMU mmu = new MMU();
     private DecodedInstruction fetchedInstruction;
     private DecodedInstruction decodedInstruction;
@@ -180,9 +181,17 @@ class Processor extends Component {
         return true;
     }
     
+    int translateToPhysicalAddress(int virtualAddr) {
+        if(0 != getRegExe(REG_RING)) {
+            return getRegExe(REG_BASE) + virtualAddr;
+        } else {
+            return virtualAddr;
+        }
+    }
     
     private boolean fetchInstruction(){
-        this.mmu.readInstruction(this.programCounter);
+        int physicalInstrAddr=translateToPhysicalAddress(programCounter);
+        this.mmu.readInstruction(physicalInstrAddr);
         if(this.mmu.getInstrReady()) {
             //this.fetchedInstruction = this.mmu.getInstruction();
             fetchedInstruction = new DecodedInstruction(
@@ -230,6 +239,7 @@ class Processor extends Component {
     private void execute(DecodedInstruction instr, ExecutedInstruction result) {
         //boolean pcAdd4 = true;
         int regIntResult;
+        int den;
         switch(instr.getOpCode()){
             case OpCodeTable.ADD:   //Ri = Rj + Rk
                 setWrBkRegister(result, instr.getRegi(), 
@@ -240,8 +250,15 @@ class Processor extends Component {
                     getRegExe(instr.getRegj()) & getRegExe(instr.getRegk()));
                 break;
             case OpCodeTable.DIV:   //Ri = Rj / Rk
-                setWrBkRegister(result, instr.getRegi(), 
-                    getRegExe(instr.getRegj()) / getRegExe(instr.getRegk()));
+                den = getRegExe(instr.getRegk());
+                if(den != 0) {
+                    setWrBkRegister(result, instr.getRegi(), 
+                        getRegExe(instr.getRegj()) / getRegExe(instr.getRegk()));                    
+                } else {
+                    result.hasException = true;
+                    result.exceptionType = INTType.DividByZero;
+                }
+
                 break;    
             case OpCodeTable.MUL:   //Ri = Rj * Rk
                 setWrBkRegister(result, instr.getRegi(), 
@@ -285,8 +302,15 @@ class Processor extends Component {
                     getRegExe(instr.getRegj())&instr.getImmediate());
                 break;
             case OpCodeTable.DIVI:  //Ri = Rj / x
-                setWrBkRegister(result, instr.getRegi(), 
-                    getRegExe(instr.getRegj())/instr.getImmediate());
+                den = instr.getImmediate();
+                if(den != 0) {
+                    setWrBkRegister(result, instr.getRegi(), 
+                        getRegExe(instr.getRegj())/instr.getImmediate());                 
+                } else {
+                    result.hasException = true;
+                    result.exceptionType = INTType.DividByZero;
+                }
+
                 break;
             case OpCodeTable.MULI:  //Ri = Rj * x
                 setWrBkRegister(result, instr.getRegi(), 
@@ -358,13 +382,13 @@ class Processor extends Component {
             case OpCodeTable.SWI:   //ENABLE=0; LRI = PC; PC = 8
                                     //r8--r15 should be saved away.
                                     //Argument passed in r0
-                assert(false);      //should process eariler
+                assert(true);      //should process eariler
                 
                 break;
             case OpCodeTable.RESUME: //PC = LRI; ENABLE=1;
                                      //r8--r15 should be restored.
                                      //Result passed in r0
-                assert(false);       //should process eariler
+                assert(true);       //should process eariler
                 
                 break;
             case OpCodeTable.NOP:   //
@@ -434,6 +458,8 @@ class Processor extends Component {
                 //pc = getRegSafe(REG_LR);
                 //pcAdd4 = false;
                 break;
+            default:
+                assert(true);
         }
         //if(pcAdd4) {
         //    pc+=4;
@@ -458,7 +484,6 @@ class Processor extends Component {
     private boolean accessMemory() {
         
         if(executedInstruction.memoryReadThenWrite) {
-            mmu.readData(executedInstruction.memoryAddress);
             if(readMemory(executedInstruction)) {
                 //Convert to memory write, so in the next cycle 
                 //it will do memory write
@@ -472,8 +497,16 @@ class Processor extends Component {
                 return readMemory(executedInstruction);
             } else {
                 if(!mmu.canWriteData()) return false;
-                mmu.writeData(executedInstruction.memoryAddress, 
-                              executedInstruction.memData);  
+                int physicalAddress = translateToPhysicalAddress(executedInstruction.memoryAddress);
+                       
+                if((this.getRegExe(REG_RING)==0) || 
+                    (physicalAddress <= getRegExe(REG_LIMIT)))  {
+                    mmu.writeData(physicalAddress, executedInstruction.memData);  
+                } else {
+                    executedInstruction.hasException = true;
+                    executedInstruction.exceptionType = INTType.PageFault;
+                }
+               
                 return true;
             }    
         }
@@ -482,7 +515,8 @@ class Processor extends Component {
 
     private boolean readMemory(ExecutedInstruction instr) 
     {
-        mmu.readData(instr.memoryAddress);
+        int physicalAddress =translateToPhysicalAddress(instr.memoryAddress);;
+        mmu.readData(physicalAddress);
         if(this.mmu.getDataReady()) {
             instr.regData = this.mmu.getData();
             return true;
@@ -499,6 +533,7 @@ class Processor extends Component {
                 //because writeBack will operate before memory write
                 hasException = true;
                 exceptionAddress = this.memAccessedInstruciton.instrAddress();
+                exceptionType = this.memAccessedInstruciton.exceptionType;
                 this.memAccessedInstruciton = null;
                 this.executedInstruction = null;
                 this.decodedInstruction = null;
@@ -507,9 +542,28 @@ class Processor extends Component {
                 return true;
             }
             if(memAccessedInstruciton.requireWriteBack) {
-
-                setRegRingChecked(memAccessedInstruciton.targetRegister, 
-                        memAccessedInstruciton.regData);
+                int target = memAccessedInstruciton.targetRegister;
+                boolean hasException=false;
+                if(this.getReg(REG_RING) == 0) {
+                    registers[target] = memAccessedInstruciton.regData;
+                } else if(this.getReg(REG_RING) != 3) {
+                    if(target <57 || target == REG_INTERRUPT) {
+                        registers[target] = memAccessedInstruciton.regData;
+                    } else {
+                        hasException = true;
+                    }
+                } else {
+                    if(target <57) {
+                        registers[target] = memAccessedInstruciton.regData;
+                    } else {
+                        hasException = true;
+                    }
+                }     
+                if(hasException) {
+                    hasException = true;
+                    exceptionAddress = this.memAccessedInstruciton.instrAddress();
+                    exceptionType = INTType.AccessPrivilegeReg;
+                }
             }
             
             if(memAccessedInstruciton.isHalt) {
@@ -567,21 +621,7 @@ class Processor extends Component {
         }
     }
     
-    private enum INTType {
-        Timer(1), Interconnect(2), SWI(4), PageFault(8);
-        
-        public int maskValue;
-        INTType(int mask) {
-            maskValue = mask;
-        }
-        
-        public int setINT(int orgValue) {
-            return orgValue | maskValue;
-        }
-        public int clearINT(int orgValue) {
-            return orgValue & (~maskValue);
-        }
-    }
+
     
     private static enum ISR {
         HW(4), SW(8);
@@ -592,8 +632,8 @@ class Processor extends Component {
         }
     }
     
-    private boolean processInterrupt() {
-        if(!canStartProcessInterrupt(false)) return false;
+    private void processInterrupt() {
+        if(!canStartProcessInterrupt(false)) return;
         //saveReg8_15();
         directEnableInterrupt(false);
         this.setReg(REG_RING, 0);
@@ -613,11 +653,11 @@ class Processor extends Component {
             programCounter = this.exceptionAddress;
             this.setReg(REG_LRI, programCounter);
             programCounter = ISR.SW.Address;
-            this.directSetINTType(INTType.PageFault);
+            this.directSetINTType(exceptionType);
         } else {
-            assert(false);
+            assert(true);
         }
-        return false;
+        
         
     }
     
@@ -689,11 +729,7 @@ class Processor extends Component {
     }
     
    
-    
-    public void setRegRingChecked(int regNumber, int value) {
-        registers[regNumber] = value;
-    }
-    
+ 
     public void setReg(int regNumber, int value) {
         registers[regNumber] = value;
     }
@@ -719,6 +755,8 @@ class Processor extends Component {
     public void executeOpcode(int instruction) {
         int op = getOp(instruction);
         int tempPC = programCounter;
+        
+        setReg(REG_RING,0);
         decodedInstruction = new DecodedInstruction(instruction, programCounter);
         executedInstruction = new ExecutedInstruction(decodedInstruction);
         execute(decodedInstruction, executedInstruction);
@@ -726,6 +764,7 @@ class Processor extends Component {
         decodedInstruction = null;
         executedInstruction = null;
         programCounter = tempPC;
+       
     }
 
     void dumpRegs() {
