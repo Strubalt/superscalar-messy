@@ -1,0 +1,21 @@
+export BUILD_PATH=$(pwd)/SiEmulator/build/classes
+export SRC_PATH=$(pwd)/SiEmulator/src
+
+if [ -f $BUILD_PATH/emulator/Emulator.class ]; then
+  echo ""
+elif [ -f $SRC_PATH/emulator/Emulator.java ]; then
+  echo "Compiling...."
+  ant -f ./SiEmulator/build.xml
+else
+  echo "Files not found."
+fi
+
+if [ -f $BUILD_PATH/emulator/Emulator.class ]; then
+ if [ $# -eq 0 ]; then
+  echo "Please input filename."
+ fi
+ if [ $# -eq 1 ]; then
+  java -cp $BUILD_PATH emulator.Emulator $1 | tee emulator.log
+ fi
+fi
+exit 0

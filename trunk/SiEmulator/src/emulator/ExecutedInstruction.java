@@ -23,6 +23,8 @@ public class ExecutedInstruction {
 
     boolean hasException;
     boolean requireWriteBack;
+    INTType exceptionType;
+    
     int     targetRegister;
     //int     data;
     int     regData;
