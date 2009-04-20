@@ -669,7 +669,7 @@ class Processor extends Component {
         //this.setRegRingChecked(REG_INTERRUPT, getEnableInterruptResult(false));
         directEnableInterrupt(false);
         this.setReg(REG_RING, 0);
-        setReg(REG_LRI, programCounter);
+        setReg(REG_LRI, programCounter+4);
         programCounter = ISR.SW.Address;
         //saveReg8_15();
         return true;
