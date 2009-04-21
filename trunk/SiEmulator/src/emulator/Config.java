@@ -89,11 +89,11 @@ public class Config {
                         String data[] = current.split("=");
                         if(data != null && data.length == 2) {
                             try{
-                                int fieldValue = Integer.parseInt(data[1]);
+                                int fieldValue = Integer.decode(data[1]);
                             
                                 setValue(data[0], fieldValue);
                             } catch (Exception e) {
-                                
+                                System.out.println(e.toString());
                             }
                             
                         }

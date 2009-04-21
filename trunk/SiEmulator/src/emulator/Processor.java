@@ -64,12 +64,12 @@ class Processor extends Component {
     
     void advanceTimeBasic() {
         //cycle+=1;
-        advanceCycle();
+        
         switch(stage) {
             case STG_FETCH:
                 
                 if(fetch()) {
-                    
+                    advanceCycle();
                     stage += 1;
                 }
                 break;
@@ -110,7 +110,13 @@ class Processor extends Component {
         memoryAccess();
         execute();
         decode();
-        boolean next = fetch();     //check if there is stall
+        boolean next=false;
+        if(null != executedInstruction && executedInstruction.requireModifyPC) {
+            
+        } else {
+            next = fetch();
+        }
+             //check if there is stall
         if(null != executedInstruction && executedInstruction.requireModifyPC) {
             programCounter = executedInstruction.newPC;
             this.fetchedInstruction = null;
@@ -151,6 +157,7 @@ class Processor extends Component {
             return false;
         } else {
             if(null != fetchedInstruction) { 
+                this.mmu.cancelInstructionRead();
                 return false;
             }
            

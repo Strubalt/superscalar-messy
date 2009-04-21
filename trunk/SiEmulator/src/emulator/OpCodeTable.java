@@ -78,7 +78,18 @@ import java.util.*;
         }
         
         public int getOpType(int opCode) {
-            return map.get(opCode);
+             return map.get(opCode);
+             /*
+            try {
+                System.out.print(opCode + ",");
+                return map.get(opCode);
+            } catch(Exception e) {
+                System.out.println("error");
+                return -1;
+            } finally {
+                
+            }
+            */
         }
 
         //OpOnly

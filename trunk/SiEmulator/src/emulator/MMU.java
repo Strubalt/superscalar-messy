@@ -67,6 +67,12 @@ public class MMU {
         
     }
     
+    public void cancelInstructionRead() {
+        if(this.isInstr && this.bus.en) {
+            this.bus.en = false;
+        }
+    }
+    
     public void readData(int dataAddr) {
         if(this.dataReady && this.dataAddr == dataAddr) {
             return;
@@ -82,6 +88,9 @@ public class MMU {
     //Suppose everything can finish in one cycle
     //Add Ready Signal for extension
     private boolean checkReadSignals(int addr, boolean isInstr) {
+        if(addr==376) {
+            System.out.print("");
+        }
         if(bus.en && bus.address != addr && this.isInstr == isInstr) {
                 bus.en = false;
         }
