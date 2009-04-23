@@ -53,14 +53,18 @@ public class Config {
             cacheNumWay = fieldValue;
         } else if(fieldName.equals(DIV_CYCLE)) {
             numDIVCycle = fieldValue;
+            if(numDIVCycle==0) numDIVCycle =1;
         } else if(fieldName.equals(MUL_CYCLE)) {
             numMulCycle = fieldValue;
+            if(numMulCycle==0) numMulCycle =1;
         } else if(fieldName.equals(INSTR_CYCLE)) {
             numBasicCycle = fieldValue;
+            if(numBasicCycle==0) numBasicCycle =1;
         } else if(fieldName.equals(MEM_SIZE_WORD)) {
             MemorySizeWord = fieldValue;
         } else if(fieldName.equals(EX_CLK)) {
             ExCLK = fieldValue;
+            if(ExCLK==0) ExCLK = 1;
         } else if(fieldName.equals(TERM_BASE_ADDR)) {
             TermBaseAddr = fieldValue;
         } else if(fieldName.equals(TERM_DELAY_AVG)) {
@@ -104,7 +108,6 @@ public class Config {
                     System.err.println("Error: " + e);
             }
         }
-	TermDelayAvg /= ExCLK;	
 		
     }
     

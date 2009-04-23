@@ -100,7 +100,7 @@ class Processor extends Component {
                 }
                 break;            
         }
-        this.mmu.advanceTime();
+        
     }
     
     void advanceTimePipeline() {
@@ -125,14 +125,20 @@ class Processor extends Component {
             programCounter += 4;
         }
         
-        this.mmu.advanceTime();
+     
     }
     
+    int exClockFactor;
     @Override
     void advanceTime() {
+        
         //advanceTimePipeline();
+        if((exClockFactor+1)%Config.ExCLK == 0) this.mmu.advanceTime();
         if(this.isPipeline) this.advanceTimePipeline();
         else this.advanceTimeBasic();
+        
+        if(exClockFactor == 0) this.mmu.advanceTime();
+        exClockFactor = (exClockFactor+1)%Config.ExCLK;
     }
 
     private boolean processSWIandRESUME() {
@@ -160,7 +166,12 @@ class Processor extends Component {
                 this.mmu.cancelInstructionRead();
                 return false;
             }
-           
+            if(null != decodedInstruction && decodedInstruction.isBranch()) {
+                return false;
+            }
+            if(null != executedInstruction && executedInstruction.requireModifyPC) {
+                return false;
+            }
             if(fetchInstruction()) {
                 int opCode = this.fetchedInstruction.getOpCode();
                 if(opCode == OpCodeTable.SWI | opCode == OpCodeTable.RESUME) {
