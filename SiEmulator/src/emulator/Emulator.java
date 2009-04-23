@@ -146,16 +146,15 @@ public class Emulator {
             advanceTime(this.processor, this.components);
         }
         
-        private int ExCLKFactor=0;
+       
         private void advanceTime(Processor processor, ArrayList<Component> components) {
-            ExCLKFactor = (ExCLKFactor+1)%Config.ExCLK;
-            if(ExCLKFactor == 0) {
-                for(Component component: components) {
-                    component.advanceTime();
-                }
-            }
+
             
             processor.advanceTime();
+            
+            for(Component component: components) {
+                component.advanceTime();
+            }
         }
         
         public void stopEmulation() {

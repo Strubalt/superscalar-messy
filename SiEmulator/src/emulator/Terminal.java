@@ -255,20 +255,34 @@ class Terminal extends Component{
     }
     
     private int outputDelay=0;
+    private void setOutputDelay() {
+        Random rand = new Random();
+        if(Config.TermDelayAvg > 10){
+            int var = rand.nextInt(Config.TermDelayAvg / 10 +1);
+            var = var-Config.TermDelayAvg / 20;
+
+            outputDelay = Config.TermDelayAvg+var;
+            if(outputDelay < 0) outputDelay = 0;
+        } else {
+            outputDelay = Config.TermDelayAvg;
+        }
+                
+
+    }
     private void outputDataFromBuffer() {
         if(outputBuffer.size() != 0) {
             if(outputDelay == 0) {
                 outputDataToTerminal(outputBuffer.get(0));
                 outputBuffer.remove(0);
                 this.resetControlRegBit(MSK_OUT_BUFFER_FULL);
-                outputDelay = Config.TermDelayAvg;
+                setOutputDelay();
             } else {
                 outputDelay -= 1;
                 if(Config.TermShowOutDelay) System.out.print("-");
             }
             
         } else {
-            outputDelay = Config.TermDelayAvg;
+            setOutputDelay();
         }
         //output buffer no longer full
         

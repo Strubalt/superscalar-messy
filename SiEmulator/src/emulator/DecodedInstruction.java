@@ -63,7 +63,7 @@ public class DecodedInstruction {
     
     //not include SWI and RESUME
     public boolean isBranch() {
-        switch(opType) {
+        switch(getOpCode()) {
             case OpCodeTable.B: case OpCodeTable.BEQZ:
             case OpCodeTable.BGEZ: case OpCodeTable.BL:
             case OpCodeTable.BNEZ: case OpCodeTable.BLTZ:
