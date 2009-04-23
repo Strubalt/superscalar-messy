@@ -206,7 +206,7 @@ class Terminal extends Component{
     private int inputDelay=0;
     private void inputDataFromTerminal() {
         if(!this.getControlRegBit(this.MSK_IN_BUFFER_NOT_EMPTY)) {
-            if(!readThread.isEmpty()) {
+            if(!readThread.isEmpty() && !bus.isInterrupted) {
                 if(inputDelay == 0) {
                     int data = readThread.readBuffer();
                     this.registers[inDataReg] = data;

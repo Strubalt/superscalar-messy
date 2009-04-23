@@ -44,8 +44,52 @@ public class MMU {
         
     }
     
-    private int exClkFactor=0;
-    void advanceTime() {
+    
+    
+    void startMemoryOperation() {
+        if(buffers.size() == 0) {
+            return;
+        }
+        MemoryOperation op = buffers.get(0);
+        if(!bus.en) {
+            op = buffers.get(0);
+            bus.address = op.address;
+            bus.en = true;
+            bus.data = op.data;
+            bus.ready = false;
+            bus.rwbar = op.rwbar;
+        }
+    }
+    
+    void finishMemoryOperation() {
+        if(buffers.size() == 0) {
+            return;
+        }
+        MemoryOperation op = buffers.get(0);
+        if(bus.en && bus.address == op.address) {
+            if(bus.ready) { //last operation has finished
+                buffers.remove(0);
+                bus.en = false;
+                bus.ready = false;
+                if(bus.rwbar) {
+                    if(op.isInstruction) {
+                        this.instrAddr = bus.address;
+                        this.instruction = bus.data;
+                        this.instrReady = true;
+                        instrCache.write(instrAddr, instruction);
+                    } else {
+                        this.dataAddr = bus.address;
+                        this.data = bus.data;
+                        this.dataReady = true;
+                    }
+                }
+            } else {
+                //wait
+            }
+        } 
+    }
+    
+    void advanceTime1() {
         if(buffers.size() == 0) {
             return;
         }
@@ -114,7 +158,8 @@ public class MMU {
     private void addOperation(int addr, int data, boolean rwbar, boolean isInstruction) {
         for(MemoryOperation op : this.buffers) {
             if(op.address == addr && op.rwbar == rwbar && op.data == data) {
-                return;
+                if(rwbar)
+                    return;
             }
         }
         this.buffers.add(new MemoryOperation(addr,data,rwbar,isInstruction));
@@ -175,6 +220,10 @@ public class MMU {
         if(this.isInstr && this.bus.en) {
             this.bus.en = false;
         }*/
+    }
+    
+    public void resetDataReady() {
+        this.dataReady = false;
     }
     
     public void readData(int dataAddr) {
