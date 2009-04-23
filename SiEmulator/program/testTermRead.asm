@@ -75,7 +75,9 @@ Print:
 movi r2, TERMINALDATAREG
 store r1, r2, 0
 movi r2, TERMINALBASE
+load r3, r2, 0
 movi r1, TRIGGERTERMINALWRITEINASCII
+or r1, r3, r1
 or r1, r1, r10
 store r1, r2, 0
 b lr

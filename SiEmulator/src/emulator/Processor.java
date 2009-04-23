@@ -133,11 +133,11 @@ class Processor extends Component {
     void advanceTime() {
         
         //advanceTimePipeline();
-        if((exClockFactor+1)%Config.ExCLK == 0) this.mmu.advanceTime();
+        if((exClockFactor+1)%Config.ExCLK == 0) this.mmu.finishMemoryOperation();
         if(this.isPipeline) this.advanceTimePipeline();
         else this.advanceTimeBasic();
         
-        if(exClockFactor == 0) this.mmu.advanceTime();
+        if(exClockFactor == 0) this.mmu.startMemoryOperation();
         exClockFactor = (exClockFactor+1)%Config.ExCLK;
     }
 
@@ -537,6 +537,7 @@ class Processor extends Component {
         mmu.readData(physicalAddress);
         if(this.mmu.getDataReady()) {
             instr.regData = this.mmu.getData();
+            mmu.resetDataReady();
             return true;
         } else {
             return false;
