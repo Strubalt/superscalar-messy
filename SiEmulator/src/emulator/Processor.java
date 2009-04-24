@@ -64,12 +64,12 @@ class Processor extends Component {
     
     void advanceTimeBasic() {
         //cycle+=1;
-        
+        advanceCycle();
         switch(stage) {
             case STG_FETCH:
                 
                 if(fetch()) {
-                    advanceCycle();
+                    
                     stage += 1;
                 }
                 break;
