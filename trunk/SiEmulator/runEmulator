@@ -5,17 +5,17 @@ if [ -f $BUILD_PATH/emulator/Emulator.class ]; then
   echo ""
 elif [ -f $SRC_PATH/emulator/Emulator.java ]; then
   echo "Compiling...."
-  ant
+  javac $SRC_PATH/emulator/*.java -d $BUILD_PATH/
 else
   echo "Files not found."
 fi
 
 if [ -f $BUILD_PATH/emulator/Emulator.class ]; then
+ if [ $# -eq 0 ]; then
+  echo "Please input filename."
+ fi
  if [ $# -eq 1 ]; then
   java -cp $BUILD_PATH emulator.Emulator $1 | tee emulator.log
- fi
- if [ $# -eq 2 ]; then
-  java -cp $BUILD_PATH emulator.Emulator $1 $2 | tee emulator.log
  fi
 fi
 exit 0
