@@ -2,7 +2,7 @@ if [ -f ../SiAssembler/bin/AsmMain.class ]; then
   echo ""
 elif [ -f ../SiAssembler/src/AsmMain.java ]; then
   echo "Compiling...."
-  ant -f ../SiAssembler/build.xml
+  javac ../SiAssembler/src/*.java -d ../SiAssembler/bin
 else
   echo "Files not found."
 fi

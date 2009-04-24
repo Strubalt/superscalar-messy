@@ -5,7 +5,7 @@ if [ -f $BUILD_PATH/emulator/Emulator.class ]; then
   echo ""
 elif [ -f $SRC_PATH/emulator/Emulator.java ]; then
   echo "Compiling...."
-  ant -f ./SiEmulator/build.xml
+  javac $SRC_PATH/emulator/*.java -d $BUILD_PATH/
 else
   echo "Files not found."
 fi
