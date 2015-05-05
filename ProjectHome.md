@@ -1,0 +1,2 @@
+This is a simulator for superscalar processor. It simulates every stage in a superscalar processor, from nPC, fetch, decode, dispatch, issue, execute, and retire.
+The language used in this project is VB.NET.
